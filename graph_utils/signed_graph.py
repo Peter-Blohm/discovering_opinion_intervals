@@ -1,0 +1,83 @@
+import networkx as nx
+
+
+class SignedGraph:
+
+    def __init__(self, G_plus=nx.Graph(), G_minus=nx.Graph()):
+        self.G_plus = G_plus
+        self.G_minus = G_minus
+
+    def number_of_nodes(self):
+        return self.G_plus.number_of_nodes()
+
+    def number_of_edges(self):
+        return self.G_plus.number_of_edges() + self.G_minus.number_of_edges()
+
+    def has_edge(self, from_node, to_node):
+        return self.G_plus.has_edge(from_node, to_node) or self.G_minus.has_edge(from_node, to_node)
+
+    def has_plus_edge(self, from_node, to_node):
+        self.G_plus.has_edge(from_node, to_node)
+
+    def add_plus_edge(self, from_node, to_node):
+        if self.G_minus.has_edge(from_node, to_node):
+            return
+        self.G_minus.add_node(from_node)
+        self.G_minus.add_node(to_node)
+        self.G_plus.add_edge(from_node, to_node)
+
+    def has_minus_edge(self, from_node, to_node):
+        self.G_minus.has_edge(from_node, to_node)
+
+    def add_minus_edge(self, from_node, to_node):
+        if self.G_plus.has_edge(from_node, to_node):
+            self.G_plus.remove_edge(from_node, to_node)
+        self.G_plus.add_node(from_node)
+        self.G_plus.add_node(to_node)
+        self.G_minus.add_edge(from_node, to_node)
+
+    def remove_node(self, n):
+        self.G_plus.remove_node(n)
+        self.G_minus.remove_node(n)
+
+    def remove_nodes_from(self, nodes):
+        self.G_plus.remove_nodes_from(nodes)
+        self.G_minus.remove_nodes_from(nodes)
+
+    def remove_edge(self, u, v):
+        if self.G_plus.has_edge(u, v):
+            self.G_plus.remove_edge(u, v)
+        self.G_minus.remove_edge(u, v)
+
+    def subgraph(self, nodes):
+        return SignedGraph(self.G_plus.subgraph(nodes), self.G_minus.subgraph(nodes))
+
+    def copy(self):
+        return SignedGraph(self.G_plus.copy(), self.G_minus.copy())
+
+
+def read_signed_graph(file):
+    G = SignedGraph()
+
+    # Open the file and read the content
+    with open(file, 'r') as file:
+        for line in file:
+            # Skip comment lines that start with '#'
+            if line.startswith('#'):
+                continue
+
+            # Split the line into FromNodeId, ToNodeId, and Sign
+            parts = line.strip().split()
+            if len(parts) == 3:
+                from_node = int(parts[0])
+                to_node = int(parts[1])
+                sign = int(parts[2])
+                if from_node == to_node:
+                    continue
+                # If either existing edge or new edge has a negative sign, set it to -1
+                if G.has_minus_edge(from_node, to_node) or sign == -1:
+                    G.add_minus_edge(from_node, to_node)
+                else:
+                    # Add the edge with the sign as an attribute
+                    G.add_plus_edge(from_node, to_node)
+    return G
