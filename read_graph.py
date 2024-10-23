@@ -1,3 +1,5 @@
+import re
+import numpy as np
 import networkx as nx
 
 from graph_utils.signed_graph_heuristics import find_max_ratio_vertex
@@ -15,11 +17,11 @@ def read_graph(file):
                 continue
 
             # Split the line into FromNodeId, ToNodeId, and Sign
-            parts = line.strip().split()
-            if len(parts) == 3:
+            parts = re.split(r'[,#;\t]', line.strip())
+            if len(parts) >= 3:
                 from_node = int(parts[0])
                 to_node = int(parts[1])
-                sign = int(parts[2])
+                sign = np.sign(int(parts[2]))
 
                 # If the edge already exists, prioritize keeping the negative sign
                 if G.has_edge(from_node, to_node):
@@ -60,7 +62,7 @@ def chicken_algorithm(G: SignedGraph):
 
 if __name__ == "__main__":
     # Initialize an undirected graph
-    data = 'data/soc-sign-epinions.txt'
+    data = 'data/wiki_L_edges.txt'
     G = read_signed_graph(data)
 
     print(f"dataset {data}")

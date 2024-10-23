@@ -1,4 +1,7 @@
+import re
+
 import networkx as nx
+import numpy as np
 
 
 class SignedGraph:
@@ -67,11 +70,11 @@ def read_signed_graph(file):
                 continue
 
             # Split the line into FromNodeId, ToNodeId, and Sign
-            parts = line.strip().split()
-            if len(parts) == 3:
+            parts = re.split(r'[,#;\t]', line.strip())
+            if len(parts) >= 3:
                 from_node = int(parts[0])
                 to_node = int(parts[1])
-                sign = int(parts[2])
+                sign = np.sign(int(parts[2]))
                 if from_node == to_node:
                     continue
                 # If either existing edge or new edge has a negative sign, set it to -1
