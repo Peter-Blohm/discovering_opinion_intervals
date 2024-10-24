@@ -1,6 +1,7 @@
 import re
 import numpy as np
 import networkx as nx
+import os
 
 from graph_utils.signed_graph_heuristics import find_max_ratio_vertex
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
@@ -50,8 +51,11 @@ def chicken_algorithm(G: SignedGraph):
         its = min(1000, graph.G_plus.number_of_nodes()-1)
         for i in range(its):
             vertex, ratio, violations = find_max_ratio_vertex(graph)
-            if vertex == 0: break
-            graph.remove_node(vertex)
+            try:
+                graph.remove_node(vertex)
+            except Exception as e:
+                print(e)
+                break
             vio += violations
             ratio_sum += ratio
         print(ratio_sum/its)
@@ -61,21 +65,23 @@ def chicken_algorithm(G: SignedGraph):
 
 
 if __name__ == "__main__":
-    # Initialize an undirected graph
-    data = 'data/wiki_L_edges.txt'
-    G = read_signed_graph(data)
+    for file in os.listdir("data"):
+        data = f"data/{file}"
 
-    print(f"dataset {data}")
-    print(f"before vertices/edges: {G.number_of_nodes()}/{G.number_of_edges()}")
-    print(f"number of negative edges {G.G_minus.number_of_edges()}")
+        G = read_signed_graph(data)
 
-    print(f"chicken algorithm violated edges:{chicken_algorithm(G)}")
-    combined_graph = nx.Graph()  # or nx.DiGraph() for directed graphs
-    graphs = kernelize_graph(G)
-    # Loop through each graph in the list and add its nodes and edges to the combined graph
-    for g in graphs:
-        combined_graph = nx.compose(combined_graph, g)
+        print(f"Name: {data}")
+        print(f"Vertices: {G.number_of_nodes()}")
+        print(f"Edges: {G.number_of_edges()}")
+        print(f"Positive Edges: {G.G_plus.number_of_edges()}")
+        print(f"Negative edges {G.G_minus.number_of_edges()}")
 
-    print(
-        f"after exact preprocessing vertices/edges: {combined_graph.number_of_nodes()}/{combined_graph.number_of_edges()}")
-    print(f"number of negative edges {sum(1 for _, _, data in combined_graph.edges(data=True) if data['sign'] == -1)}")
+        # Kernelize the graph
+        graphs = kernelize_graph(G, safe=True)
+        largest_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
+
+        print(f"Number of vertices in largest connected component after 1 round of error free kernelization: {largest_graph.number_of_nodes()}")
+        print(f"Number of positives edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_plus.number_of_edges()}")
+        print(f"Number of negative edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_minus.number_of_edges()}")
+
+        print(f"chicken algorithm violated edges:{chicken_algorithm(G)}")

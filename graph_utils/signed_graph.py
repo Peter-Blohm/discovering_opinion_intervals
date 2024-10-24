@@ -6,7 +6,7 @@ import numpy as np
 
 class SignedGraph:
 
-    def __init__(self, G_plus=nx.Graph(), G_minus=nx.Graph()):
+    def __init__(self, G_plus, G_minus):
         self.G_plus = G_plus
         self.G_minus = G_minus
 
@@ -60,7 +60,7 @@ class SignedGraph:
 
 
 def read_signed_graph(file):
-    G = SignedGraph()
+    G = SignedGraph(nx.Graph(), nx.Graph())
 
     # Open the file and read the content
     with open(file, 'r') as file:

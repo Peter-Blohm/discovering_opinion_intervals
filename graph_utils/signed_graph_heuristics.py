@@ -10,7 +10,8 @@ def find_max_ratio_vertex(graph: SignedGraph, sign=0) -> (int, float, int):
     :param sign: 1 or -1 for the corresponding edge type, 0 for both
     :return: tuple - index of the marked vertex, ratio (signed), number of violated edges
     """
-    best_vertex = best_ratio = violated_edges = 0
+    best_vertex = -1
+    best_ratio = violated_edges = 0
 
     plus_deg = [degree for node, degree in graph.G_plus.degree()]
     minus_deg = [degree for node, degree in graph.G_minus.degree()]
