@@ -77,6 +77,7 @@ def read_signed_graph(file):
                 sign = np.sign(int(parts[2]))
                 if from_node == to_node:
                     continue
+                from_node, to_node = (from_node, to_node) if from_node < to_node else (to_node, from_node)
                 # If either existing edge or new edge has a negative sign, set it to -1
                 if G.has_minus_edge(from_node, to_node) or sign == -1:
                     G.add_minus_edge(from_node, to_node)
