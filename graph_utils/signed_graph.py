@@ -70,7 +70,7 @@ def read_signed_graph(file):
                 continue
 
             # Split the line into FromNodeId, ToNodeId, and Sign
-            parts = re.split(r'[,#;\t]', line.strip())
+            parts = re.split(r'[,#;\t ]+', line.strip())
             if len(parts) >= 3:
                 from_node = int(parts[0])
                 to_node = int(parts[1])
