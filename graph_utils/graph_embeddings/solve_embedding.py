@@ -1,12 +1,14 @@
 import gurobipy as gp
 from gurobipy import GRB
 
+from graph_utils.signed_graph_kernelization import kernelize_graph
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
 
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+
 
 class DraggableNode:
     def __init__(self, graph, pos, node_colors, ax):
@@ -51,7 +53,8 @@ class DraggableNode:
 
     def redraw(self):
         self.ax.clear()
-        nx.draw_networkx_nodes(self.graph.G_plus, self.pos, node_color=[self.node_colors[node] for node in self.graph.G_plus.nodes], ax=self.ax)
+        nx.draw_networkx_nodes(self.graph.G_plus, self.pos,
+                               node_color=[self.node_colors[node] for node in self.graph.G_plus.nodes], ax=self.ax)
         nx.draw_networkx_edges(self.graph.G_plus, self.pos, edge_color="green", ax=self.ax, label="Positive Edges")
         nx.draw_networkx_edges(self.graph.G_minus, self.pos, edge_color="red", ax=self.ax, label="Negative Edges")
         nx.draw_networkx_labels(self.graph.G_plus, self.pos, ax=self.ax)
@@ -85,7 +88,7 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times):
         node = list(graph.G_plus.nodes)[i]
         color = node_colors[node]
         ax2.plot([s, t], [i, i], marker='o', markersize=5, linewidth=2, color=color, label=f'Node {node}')
-    
+
     ax2.set_xlabel("Time")
     ax2.set_title("Interval Representation")
     ax2.set_yticks([])
@@ -94,62 +97,58 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times):
     plt.tight_layout()
     plt.show()
 
-def build_constraint_model(model: gp.Model, graph: SignedGraph):
+
+def build_constraint_model(model: gp.Model, graph: SignedGraph, hard_negative_edges: bool = False):
     V = graph.G_plus.nodes
     E_plus = graph.G_plus.edges
     E_minus = graph.G_minus.edges
     # large M constant, to deactivate constraints (bad model but simple)
-    M = len(V)*2
+    M = 1
+    eps = 10 ** -5
 
     # variables
-    s = model.addVars(V, vtype=GRB.CONTINUOUS, name="start")
-    t = model.addVars(V, vtype=GRB.CONTINUOUS, name="end")
-    x = model.addVars([(i, j) for i in V for j in V if i < j], vtype=GRB.BINARY, name="overlap")
-    z_miss = model.addVars(E_plus, vtype=GRB.BINARY, name="penalty_miss")
-    z_extra = model.addVars(E_minus, vtype=GRB.BINARY, name="penalty_extra")
+    s = model.addVars(V, vtype=GRB.CONTINUOUS, lb=0, ub=1, name="start")
+    t = model.addVars(V, vtype=GRB.CONTINUOUS, lb=0, ub=1, name="end")
+    # x = model.addVars(((i, j) for i in V for j in V if i != j), vtype=GRB.BINARY, name="overlap")
+    # we say these variables count towards the objective value with obj=1
+    z_miss = model.addVars(E_plus, vtype=GRB.BINARY, name="penalty_miss", obj=1)
+    z_extra = model.addVars(E_minus, vtype=GRB.BINARY, name="penalty_extra", obj=1)
     # for dealing with the disjunction in non-overlap constraints
     disjoint_aux = model.addVars(E_minus, vtype=GRB.BINARY, name="disjoint_left_aux")
 
-    # 1. interval Definition Constraints
-    for i in V:
-        model.addConstr(t[i] >= s[i] + 1, name=f"interval_{i}")
+    # s and t define (non-empty, could be changed) intervals
+    model.addConstrs((s[i] + eps <= t[i] for i in V), name=f"interval")
 
-    # 2. overlap Constraints
-    for (i, j) in E_plus:  # we want xij == 1 if possible
-        model.addConstr(x[i, j] + z_miss[i, j] == 1, name=f"overlap_penalty_{i}_{j}")
-        # if either si > tj or sj > ti, xij must be set to 0
-        model.addConstr(s[i] <= t[j] + M * (1 - x[i, j]), name=f"overlap_1_{i}_{j}")
-        model.addConstr(s[j] <= t[i] + M * (1 - x[i, j]), name=f"overlap_2_{i}_{j}")
+    # plus edges should overlap, otherwise set z_miss to 1
 
-    # 3. non-overlap Constraints
-    for (i, j) in E_minus:  # we want xij ==0 if possible (we can change this to force the solver to respect - edges)
-        model.addConstr(x[i, j] - z_extra[i, j] == 0, name=f"nonoverlap_penalty_{i}_{j}")
+    model.addConstrs((s[i] <= t[j] + M * z_miss[i, j] for (i, j) in z_miss.keys()), name="plus_edge_overlap_1")
+    model.addConstrs((s[j] <= t[i] + M * z_miss[i, j] for (i, j) in z_miss.keys()), name="plus_edge_overlap_2")
 
-        # disjoint aux deactivates either constraint, but for both to be disabled (overlap), xij must be 1
-        model.addConstr(t[i] + 1 <= s[j] + M * (x[i, j] + 1 - disjoint_aux[i, j]), name=f"nonoverlap_left_{i}_{j}")
-        model.addConstr(t[j] + 1 <= s[i] + M * (x[i, j] + disjoint_aux[i, j]), name=f"nonoverlap_right_{i}_{j}")
+    # minus edges should either be left- or right-disjoint, otherwise set z_extra to 1
+    model.addConstrs((t[i] + eps <= s[j] + M * (z_extra[i, j] + 1 - disjoint_aux[i, j]) for (i, j) in z_extra.keys()), name=f"nonoverlap_left")
+    model.addConstrs((t[j] + eps <= s[i] + M * (z_extra[i, j] + disjoint_aux[i, j]) for (i, j) in z_extra.keys()), name=f"nonoverlap_right")
 
-    # objective: minimize penalties for incorrect overlaps and non-overlaps
-    model.setObjective(gp.quicksum(z_miss[i, j] for i, j in E_plus) + gp.quicksum(z_extra[i, j] for i, j in E_minus),
-                       GRB.MINIMIZE)
+    #tightening constraints:
+    # model.addConstrs((s[i]))
 
 
 if __name__ == "__main__":
     # context handlers take care of handling resources correctly
-    data = 'data/long_claw.txt'
+    data = 'data/soc-sign-bitcoinotc.csv'
     graph = read_signed_graph(data)
-
+    graph = kernelize_graph(graph)[0]
     # Create combined graph for layout (includes positive and negative edges)
     combined_graph = nx.Graph()
     combined_graph.add_nodes_from(graph.G_plus.nodes)
+
     combined_graph.add_edges_from(graph.G_plus.edges)
     combined_graph.add_edges_from(graph.G_minus.edges)
 
     with gp.Env(empty=True) as env:
-        env.setParam("OutputFlag", 0)
-        env.setParam("TimeLimit", 60)
+        env.setParam("OutputFlag", 1)
+        env.setParam("TimeLimit", 180)
         env.setParam("SoftMemLimit", 16)  # GB (I think)
-        env.setParam("Threads", 8)  # TODO: this we need to play with at some point
+        env.setParam("Threads", 15)  # TODO: this we need to play with at some point
         env.start()
         with gp.Model("some_model_name", env=env) as model:
             try:
@@ -159,20 +158,24 @@ if __name__ == "__main__":
 
                 # Retrieve solution
                 if model.status == GRB.OPTIMAL:
-                    start_times = [var.X for var in model.getVars() if "start" in var.VarName]
-                    end_times = [var.X for var in model.getVars() if "end" in var.VarName]
+                    starts = [var.X for var in model.getVars() if "start" in var.VarName]
+                    ends = [var.X for var in model.getVars() if "end" in var.VarName]
                     overlaps = [(var.VarName, var.X) for var in model.getVars() if "overlap" in var.VarName]
                     miss = [(var.VarName, var.X) for var in model.getVars() if "miss" in var.VarName]
                     extra = [(var.VarName, var.X) for var in model.getVars() if "extra" in var.VarName]
-                    print("Start Times:", start_times)
-                    print("End Times:", end_times)
+                    print("Start Times:", starts)
+                    print("End Times:", ends)
                     print("Overlaps:", overlaps)
                     print("Penalty for missed overlaps:", miss)
                     print("Penalty for extra overlaps:", extra)
                     print("Deleted edges for opt:", model.ObjVal)
-                    plot_combined_graph_and_intervals(graph, start_times, end_times)
+                    plot_combined_graph_and_intervals(graph, starts, ends)
+                elif model.status == GRB.TIME_LIMIT:
+                    print("No optimal solution found.")
+                    print("bounds:", model.ObjBound, model.ObjVal)
                 else:
-                    print("No feasible solution found.")
+                    print("no feasible solution found.")
+
 
             except gp.GurobiError as e:
                 print(f"Error code {e.errno}: {e}")
