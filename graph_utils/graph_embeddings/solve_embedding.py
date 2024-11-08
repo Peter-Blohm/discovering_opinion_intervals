@@ -7,6 +7,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+import os
 
 class DraggableNode:
     def __init__(self, graph, pos, node_colors, ax):
@@ -59,7 +60,7 @@ class DraggableNode:
         plt.draw()
 
 
-def plot_combined_graph_and_intervals(graph, start_times, end_times):
+def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, pos=None):
     # Generate a color map for nodes
     num_nodes = len(graph.G_plus.nodes)
     colors = cm.rainbow(np.linspace(0, 1, num_nodes))  # Generate distinct colors
@@ -71,7 +72,8 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times):
     combined_graph.add_edges_from(graph.G_minus.edges)
 
     # Compute layout based on the combined graph
-    pos = nx.kamada_kawai_layout(combined_graph)
+    if pos is None:
+        pos = nx.kamada_kawai_layout(combined_graph)
 
     # Define the layout for subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), gridspec_kw={'height_ratios': [2, 1]})
@@ -92,7 +94,11 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times):
     ax2.invert_yaxis()
 
     plt.tight_layout()
-    plt.show()
+
+    # Save the plot to a file
+    plt.savefig(target_file_path)
+
+    plt.close()
 
 def build_constraint_model(model: gp.Model, graph: SignedGraph):
     V = graph.G_plus.nodes
@@ -134,16 +140,23 @@ def build_constraint_model(model: gp.Model, graph: SignedGraph):
                        GRB.MINIMIZE)
 
 
-if __name__ == "__main__":
-    # context handlers take care of handling resources correctly
-    data = 'data/long_claw.txt'
-    graph = read_signed_graph(data)
+def get_cycle_positions(cycle):
+    """
+    Generates positions for nodes in a cycle.
+    """
+    num_nodes = len(cycle)
+    angle_step = 2 * np.pi / num_nodes
+    positions = {}
+    for i, node in enumerate(cycle):
+        angle = i * angle_step
+        positions[node] = (np.cos(angle), np.sin(angle))
+    return positions
 
-    # Create combined graph for layout (includes positive and negative edges)
-    combined_graph = nx.Graph()
-    combined_graph.add_nodes_from(graph.G_plus.nodes)
-    combined_graph.add_edges_from(graph.G_plus.edges)
-    combined_graph.add_edges_from(graph.G_minus.edges)
+
+def check_embeddability(file: str, okay_dir: str, bad_dir: str):
+
+    graph = read_signed_graph(file)
+    pos = get_cycle_positions(graph.G_plus.nodes) 
 
     with gp.Env(empty=True) as env:
         env.setParam("OutputFlag", 0)
@@ -164,13 +177,14 @@ if __name__ == "__main__":
                     overlaps = [(var.VarName, var.X) for var in model.getVars() if "overlap" in var.VarName]
                     miss = [(var.VarName, var.X) for var in model.getVars() if "miss" in var.VarName]
                     extra = [(var.VarName, var.X) for var in model.getVars() if "extra" in var.VarName]
-                    print("Start Times:", start_times)
-                    print("End Times:", end_times)
-                    print("Overlaps:", overlaps)
-                    print("Penalty for missed overlaps:", miss)
-                    print("Penalty for extra overlaps:", extra)
-                    print("Deleted edges for opt:", model.ObjVal)
-                    plot_combined_graph_and_intervals(graph, start_times, end_times)
+                    
+
+                    if model.ObjVal == 0:
+                        target_file_path = os.path.join(okay_dir, os.path.basename(file)).replace(".txt", ".png")
+                    else:
+                        target_file_path = os.path.join(bad_dir, os.path.basename(file)).replace(".txt", ".png")
+
+                    plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, pos=pos)
                 else:
                     print("No feasible solution found.")
 
