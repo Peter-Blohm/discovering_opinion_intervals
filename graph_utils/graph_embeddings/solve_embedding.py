@@ -52,9 +52,21 @@ class DraggableNode:
 
     def redraw(self):
         self.ax.clear()
+
+        # Draw nodes
         nx.draw_networkx_nodes(self.graph.G_plus, self.pos, node_color=[self.node_colors[node] for node in self.graph.G_plus.nodes], ax=self.ax)
+
+        # Draw edges for G_plus (green) and G_minus (red)
         nx.draw_networkx_edges(self.graph.G_plus, self.pos, edge_color="green", ax=self.ax, label="Positive Edges")
         nx.draw_networkx_edges(self.graph.G_minus, self.pos, edge_color="red", ax=self.ax, label="Negative Edges")
+
+        # Draw all possible edges not in G_plus or G_minus in blue
+        all_possible_edges = set(nx.complete_graph(self.graph.G_plus.nodes).edges)
+        existing_edges = set(self.graph.G_plus.edges).union(self.graph.G_minus.edges)
+        missing_edges = all_possible_edges - existing_edges
+        nx.draw_networkx_edges(self.graph.G_plus, self.pos, edgelist=missing_edges, edge_color="blue", ax=self.ax, style="dashed", label="Missing Edges")
+
+        # Draw labels and title
         nx.draw_networkx_labels(self.graph.G_plus, self.pos, ax=self.ax)
         self.ax.set_title("Interactive Signed Graph - Drag Nodes to Reposition")
         plt.draw()
@@ -153,10 +165,9 @@ def get_cycle_positions(cycle):
     return positions
 
 
-def check_embeddability(file: str, okay_dir: str, bad_dir: str):
+def check_embeddability(file: str):
 
     graph = read_signed_graph(file)
-    pos = get_cycle_positions(graph.G_plus.nodes) 
 
     with gp.Env(empty=True) as env:
         env.setParam("OutputFlag", 0)
@@ -178,13 +189,9 @@ def check_embeddability(file: str, okay_dir: str, bad_dir: str):
                     miss = [(var.VarName, var.X) for var in model.getVars() if "miss" in var.VarName]
                     extra = [(var.VarName, var.X) for var in model.getVars() if "extra" in var.VarName]
                     
+                    print(f"Optimal solution found with objective: {model.ObjVal}")
 
-                    if model.ObjVal == 0:
-                        target_file_path = os.path.join(okay_dir, os.path.basename(file)).replace(".txt", ".png")
-                    else:
-                        target_file_path = os.path.join(bad_dir, os.path.basename(file)).replace(".txt", ".png")
-
-                    plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, pos=pos)
+                    return model.ObjVal == 0, start_times, end_times
                 else:
                     print("No feasible solution found.")
 
@@ -192,3 +199,17 @@ def check_embeddability(file: str, okay_dir: str, bad_dir: str):
                 print(f"Error code {e.errno}: {e}")
             except AttributeError as attr_err:
                 print(f"Encountered an attribute error: {attr_err}")
+    
+    return False, None, None
+
+
+if __name__ == "__main__":
+    okay_dir = "data/test_good"
+    bad_dir = "data/test_bad"
+
+    os.makedirs(okay_dir, exist_ok=True)
+    os.makedirs(bad_dir, exist_ok=True)
+
+    file = "data/cycle.txt"
+
+    check_embeddability(file, okay_dir, bad_dir)
