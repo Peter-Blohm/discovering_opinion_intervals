@@ -50,7 +50,7 @@ class DraggableNode:
         self.pos[self.selected_node] = (x0 + dx, y0 + dy)
         self.redraw()
 
-    def redraw(self):
+    def redraw(self, draw_edges="all"):
         self.ax.clear()
 
         # Draw nodes
@@ -58,13 +58,16 @@ class DraggableNode:
 
         # Draw edges for G_plus (green) and G_minus (red)
         nx.draw_networkx_edges(self.graph.G_plus, self.pos, edge_color="green", ax=self.ax, label="Positive Edges")
-        nx.draw_networkx_edges(self.graph.G_minus, self.pos, edge_color="red", ax=self.ax, label="Negative Edges")
+
+        if draw_edges != "missing":
+            nx.draw_networkx_edges(self.graph.G_minus, self.pos, edge_color="red", ax=self.ax, label="Negative Edges")
 
         # Draw all possible edges not in G_plus or G_minus in blue
-        all_possible_edges = set(nx.complete_graph(self.graph.G_plus.nodes).edges)
-        existing_edges = set(self.graph.G_plus.edges).union(self.graph.G_minus.edges)
-        missing_edges = all_possible_edges - existing_edges
-        nx.draw_networkx_edges(self.graph.G_plus, self.pos, edgelist=missing_edges, edge_color="blue", ax=self.ax, style="dashed", label="Missing Edges")
+        if draw_edges != "existing":
+            all_possible_edges = set(nx.complete_graph(self.graph.G_plus.nodes).edges)
+            existing_edges = set(self.graph.G_plus.edges).union(self.graph.G_minus.edges)
+            missing_edges = all_possible_edges - existing_edges
+            nx.draw_networkx_edges(self.graph.G_plus, self.pos, edgelist=missing_edges, edge_color="blue", ax=self.ax, style="dashed", label="Missing Edges")
 
         # Draw labels and title
         nx.draw_networkx_labels(self.graph.G_plus, self.pos, ax=self.ax)
@@ -72,7 +75,7 @@ class DraggableNode:
         plt.draw()
 
 
-def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, pos=None):
+def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, pos=None, draw_edges="all"):
     # Generate a color map for nodes
     num_nodes = len(graph.G_plus.nodes)
     colors = cm.rainbow(np.linspace(0, 1, num_nodes))  # Generate distinct colors
@@ -92,7 +95,9 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file
 
     # Initialize draggable nodes
     draggable = DraggableNode(graph, pos, node_colors, ax1)
-    draggable.redraw()  # Initial draw
+
+    draggable.redraw(draw_edges)  # Initial draw
+
 
     # Draw the interval embedding on the bottom subplot
     for i, (s, t) in enumerate(zip(start_times, end_times)):
@@ -189,7 +194,7 @@ def check_embeddability(file: str):
                     miss = [(var.VarName, var.X) for var in model.getVars() if "miss" in var.VarName]
                     extra = [(var.VarName, var.X) for var in model.getVars() if "extra" in var.VarName]
                     
-                    print(f"Optimal solution found with objective: {model.ObjVal}")
+                    #print(f"Optimal solution found with objective: {model.ObjVal}")
 
                     return model.ObjVal == 0, start_times, end_times
                 else:

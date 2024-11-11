@@ -1,9 +1,9 @@
 import os
 import argparse
 import random
-from graph_utils.graph_embeddings.solve_embedding import check_embeddability, get_cycle_positions ,plot_combined_graph_and_intervals
+import networkx as nx
+from graph_utils.graph_embeddings.solve_embedding import check_embeddability, get_cycle_positions, plot_combined_graph_and_intervals
 from graph_utils.signed_graph import read_signed_graph
-
 
 def save_graph_to_file(edges, count, output_dir, tmp=False):
     """
@@ -19,7 +19,6 @@ def save_graph_to_file(edges, count, output_dir, tmp=False):
         f.write("# FromNodeId\tToNodeId\tSign\n")
         for u, v, sign in edges:
             f.write(f"{u}\t{v}\t{sign}\n")
-
     return filename
 
 def generate_and_save_signed_graphs(num_nodes, target_count=20):
@@ -66,8 +65,24 @@ def generate_and_save_signed_graphs(num_nodes, target_count=20):
 
             target_file_path = os.path.join(ok_dir_path, os.path.basename(file_path)).replace(".txt", ".png")
 
-            plot_combined_graph_and_intervals(graph, final_start, final_end, target_file_path, pos=pos)
+            plot_combined_graph_and_intervals(graph, final_start, final_end, target_file_path, pos=pos, draw_edges="missing")
 
+            G_choral = nx.Graph()
+
+            for u, v, sign in edges:
+                if sign == 1:
+                    G_choral.add_edge(u, v, color="green")
+            
+            for edge in remaining_edges[num_of_neg_edges:]:
+                if edge in edges:
+                    continue
+                u, v, _ = edge
+                G_choral.add_edge(u, v, color="blue")
+
+            # Check chordality
+            is_chordal = nx.is_chordal(G_choral)
+            print(f"Graph is chordal matches embeddability: {is_chordal}")
+    
         else:
             for neg_edge in neg_edges:
                 edges.remove(neg_edge)
@@ -76,16 +91,33 @@ def generate_and_save_signed_graphs(num_nodes, target_count=20):
                 if tmp_embeddable:
                     edges.append(neg_edge)
                 os.remove(tmp_path)
-            
+    
             file_path = save_graph_to_file(edges, idx, graph_dir)
             _, final_start, final_end = check_embeddability(file_path)
-
+    
             graph = read_signed_graph(file_path)
             pos = get_cycle_positions(graph.G_plus.nodes)
-
+    
             target_file_path = os.path.join(bad_dir_path, os.path.basename(file_path)).replace(".txt", ".png")
+    
+            plot_combined_graph_and_intervals(graph, final_start, final_end, target_file_path, pos=pos, draw_edges="existing")
 
-            plot_combined_graph_and_intervals(graph, final_start, final_end, target_file_path, pos=pos)
+            G_choral = nx.Graph()
+
+            for u, v, sign in edges:
+                if sign == 1:
+                    G_choral.add_edge(u, v, color="green")
+            
+            for edge in remaining_edges[num_of_neg_edges:]:
+                if edge in edges:
+                    continue
+                u, v, _ = edge
+                G_choral.add_edge(u, v, color="blue")
+
+            # Check chordality
+            is_chordal = nx.is_chordal(G_choral)
+            print(f"Graph is chordal matches embeddability: {not is_chordal}")
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate and save signed graphs.")
