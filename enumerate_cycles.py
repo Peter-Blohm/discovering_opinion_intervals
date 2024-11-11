@@ -35,16 +35,18 @@ def is_valid_graph(nodes, edges):
             return False
 
     # Check all cuts
+    valid = True
+    
     for cut_size in range(1, nodes // 2 + 1):
         for subset in itertools.combinations(range(nodes), cut_size):
+            
             other_set = set(range(nodes)) - set(subset)
-            illegal = True
-            for edge in negative_edges:
-                if edge[0] in subset and edge[1] in other_set:
-                    illegal = False
-            if illegal:
-                return True
-    return False
+            
+            if all([True if (edge[0] in subset and edge[1] in subset) or (edge[0] in other_set and edge[1] in other_set) else False for edge in negative_edges]):
+                valid = False
+                break
+
+    return valid
 
 def save_graph_to_file(edges, nodes, count, output_dir):
     """
