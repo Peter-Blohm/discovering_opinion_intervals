@@ -21,69 +21,96 @@ def save_graph_to_file(edges, count, output_dir, tmp=False):
             f.write(f"{u}\t{v}\t{sign}\n")
     return filename
 
-def _backtrack_missing_edges(ordered_cycle, missing_edges, edges_to_place, memo, left_ptr=1, right_ptr=-1):
-        """
-        Recursive backtracking function with memoization.
-        """
+def _backtrack_missing_edges_iterative(ordered_cycle, missing_edges, edges_to_place):
+    """
+    Iterative backtracking function with memoization.
+    """
+    memo = {}
+    stack = []
+    initial_state = {
+        'left_ptr': 1,
+        'right_ptr': -1,
+        'edges_to_place': edges_to_place,
+        'state': 'new',
+    }
+    stack.append(initial_state)
+
+    while stack:
+        frame = stack[-1]
+        left_ptr = frame['left_ptr']
+        right_ptr = frame['right_ptr'] % len(ordered_cycle)
+        edges_to_place = frame['edges_to_place']
+        key = (left_ptr, right_ptr)
+
+        if key in memo:
+            if memo[key]:
+                return True
+            else:
+                stack.pop()
+                continue
+
         if edges_to_place == 0:
+            memo[key] = True
             return True
 
-        if left_ptr >= right_ptr % len(ordered_cycle):
-            return False
+        if left_ptr >= right_ptr:
+            memo[key] = False
+            stack.pop()
+            continue
 
-        # Memoization key
-        key = (left_ptr, right_ptr % len(ordered_cycle))
-        if key in memo:
-            return memo[key]
+        if frame['state'] == 'new':
+            options = []
 
-        options = []
+            left_vertex = ordered_cycle[left_ptr]
+            right_vertex = ordered_cycle[right_ptr]
+            next_right_vertex = ordered_cycle[(right_ptr - 1) % len(ordered_cycle)]
+            next_left_vertex = ordered_cycle[(left_ptr + 1) % len(ordered_cycle)]
 
-        # Calculate indices with wrap-around
-        left_vertex = ordered_cycle[left_ptr]
-        right_vertex = ordered_cycle[right_ptr]
-        next_right_vertex = ordered_cycle[(right_ptr - 1) % len(ordered_cycle)]
-        next_left_vertex = ordered_cycle[(left_ptr + 1) % len(ordered_cycle)]
+            option1 = (min(left_vertex, next_right_vertex), max(left_vertex, next_right_vertex))
+            option2 = (min(right_vertex, next_left_vertex), max(right_vertex, next_left_vertex))
 
-        option1 = (min(left_vertex, next_right_vertex), max(left_vertex, next_right_vertex))
-        option2 = (min(right_vertex, next_left_vertex), max(right_vertex, next_left_vertex))
+            options_list = []
+            if option1 in missing_edges:
+                options_list.append(('left_to_right', option1))
+            if option2 in missing_edges:
+                options_list.append(('right_to_left', option2))
 
-        # Check if the options are available in missing_edges
-        if option1 in missing_edges and (left_ptr, (right_ptr - 1)  % len(ordered_cycle)) not in memo:
-            options.append(("left_to_right", option1))
-        if option2 in missing_edges and ((left_ptr + 1) % len(ordered_cycle), right_ptr) not in memo:
-            options.append(("right_to_left", option2))
+            frame['options'] = options_list
+            frame['option_index'] = 0
+            frame['state'] = 'options'
 
-        for option_type, edge in options:
-            if option_type == "left_to_right":
-                # Move right pointer backward
-                success = _backtrack_missing_edges(
-                    ordered_cycle,
-                    missing_edges,
-                    edges_to_place - 1,
-                    memo,
-                    left_ptr,
-                    (right_ptr - 1) % len(ordered_cycle),
-                )
-            elif option_type == "right_to_left":
-                # Move left pointer forward
-                success = _backtrack_missing_edges(
-                    ordered_cycle,
-                    missing_edges,
-                    edges_to_place - 1,
-                    memo,
-                    (left_ptr + 1) % len(ordered_cycle),
-                    right_ptr,
-                )
-            else:
-                success = False
+        options = frame['options']
+        option_index = frame['option_index']
 
-            if success:
-                memo[key] = True
-                return True
+        if option_index >= len(options):
+            memo[key] = False
+            stack.pop()
+            continue
 
-        # If no options lead to a solution
-        memo[key] = False
-        return False
+        option_type, edge = options[option_index]
+        frame['option_index'] += 1
+
+        if option_type == 'left_to_right':
+            new_left_ptr = left_ptr
+            new_right_ptr = (right_ptr - 1) % len(ordered_cycle)
+        elif option_type == 'right_to_left':
+            new_left_ptr = (left_ptr + 1) % len(ordered_cycle)
+            new_right_ptr = right_ptr
+
+        # Check memoization before pushing new state
+        new_key = (new_left_ptr, new_right_ptr)
+        if new_key in memo and memo[new_key] == False:
+            continue
+
+        new_frame = {
+            'left_ptr': new_left_ptr,
+            'right_ptr': new_right_ptr,
+            'edges_to_place': edges_to_place - 1,
+            'state': 'new',
+        }
+        stack.append(new_frame)
+
+    return False
 
 def check_cycle_subinterval(graph: SignedGraph):
     """
@@ -118,21 +145,15 @@ def check_cycle_subinterval(graph: SignedGraph):
         if initial_edge not in missing_edges:
             continue
 
-        memo = {}
-        success = _backtrack_missing_edges(
+        edges_to_place = required_missing_edges - 1
+        success = _backtrack_missing_edges_iterative(
             ordered_cycle,
             missing_edges,
-            required_missing_edges - 1,  # Subtract 1 for the initial edge
-            memo,
-            left_ptr=1,
-            right_ptr=-1,
+            edges_to_place,
         )
         if success:
             return True
     return False
-
-    
-
 
 def generate_and_save_signed_graphs(num_nodes, target_count=20):
     """
@@ -163,19 +184,20 @@ def generate_and_save_signed_graphs(num_nodes, target_count=20):
         graph = read_signed_graph(file_path)
         
         # start timer
-        start_time = time.time()
-        embeddable, start, end = check_embeddability(file_path)
-        end_time = time.time()
-        print(f"Time taken to check embeddability: {end_time - start_time}")
+        # start_time = time.time()
+        # embeddable, start, end = check_embeddability(file_path)
+        # end_time = time.time()
+        # print(f"Time taken to check embeddability: {end_time - start_time}")
+        print("starting subinterval condition check")
         start_time = time.time()
         subinterval_condition = check_cycle_subinterval(graph)
         end_time = time.time()
         print(f"Time taken to check subinterval condition: {end_time - start_time}")
-        
-        print(f"For graph {idx+1}/{target_count} condition matches embeddability: {embeddable == subinterval_condition}")
+
+        #print(f"For graph {idx+1}/{target_count} condition matches embeddability: {embeddable == subinterval_condition}")
         
 
-        if embeddable:
+        if subinterval_condition:
             target_file_path = os.path.join(ok_dir_path, os.path.basename(file_path)).replace(".txt", ".png")
             draw_edges = "missing"
         else:
@@ -183,7 +205,7 @@ def generate_and_save_signed_graphs(num_nodes, target_count=20):
             draw_edges = "existing"
 
         pos = get_cycle_positions(graph.G_plus.nodes) 
-        plot_combined_graph_and_intervals(graph, start, end, target_file_path, pos=pos, draw_edges=draw_edges)
+        plot_combined_graph_and_intervals(graph, [], [], target_file_path, pos=pos, draw_edges=draw_edges)
         
 
 if __name__ == "__main__":
