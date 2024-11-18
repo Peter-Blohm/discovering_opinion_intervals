@@ -175,7 +175,7 @@ def check_embeddability(file: str):
     graph = read_signed_graph(file)
 
     with gp.Env(empty=True) as env:
-        env.setParam("OutputFlag", 1)
+        env.setParam("OutputFlag", 0)
         env.setParam("TimeLimit", 180)
         env.setParam("SoftMemLimit", 16)  # GB (I think)
         env.setParam("Threads", 15)  # TODO: this we need to play with at some point
