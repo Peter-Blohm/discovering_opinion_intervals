@@ -57,6 +57,17 @@ def kernelize_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
     if not safe:
         g_prime = _delete_2mix_vertices(g_prime)
     graphs = _find_plus_connected_components(g_prime)
+    
+    if not safe:
+        graphs_prime = []
+        for g in graphs:
+            combined_graph = nx.compose(g.G_plus, g.G_minus)
+            two_edge_connected_components = nx.k_edge_subgraphs(combined_graph, 2)
+            for component in two_edge_connected_components:
+                subgraph = graph.subgraph(component).copy()
+                graphs_prime.append(subgraph)
+        graphs = graphs_prime
+        
     if len(graphs) < 2:
         return graphs
     kernel_graphs = []

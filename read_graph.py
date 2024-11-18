@@ -65,23 +65,23 @@ def chicken_algorithm(G: SignedGraph):
 
 
 if __name__ == "__main__":
-    for file in os.listdir("data"):
-        data = f"data/{file}"
+    #for file in os.listdir("data"):
+    data = f"data/soc-sign-Slashdot090221.txt"
 
-        G = read_signed_graph(data)
+    G = read_signed_graph(data)
 
-        print(f"Name: {data}")
-        print(f"Vertices: {G.number_of_nodes()}")
-        print(f"Edges: {G.number_of_edges()}")
-        print(f"Positive Edges: {G.G_plus.number_of_edges()}")
-        print(f"Negative edges {G.G_minus.number_of_edges()}")
+    print(f"Name: {data}")
+    print(f"Vertices: {G.number_of_nodes()}")
+    print(f"Edges: {G.number_of_edges()}")
+    print(f"Positive Edges: {G.G_plus.number_of_edges()}")
+    print(f"Negative edges {G.G_minus.number_of_edges()}")
 
-        # Kernelize the graph
-        graphs = kernelize_graph(G, safe=True)
-        largest_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
+    # Kernelize the graph
+    graphs = kernelize_graph(G, safe=True)
+    largest_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
 
-        print(f"Number of vertices in largest connected component after 1 round of error free kernelization: {largest_graph.number_of_nodes()}")
-        print(f"Number of positives edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_plus.number_of_edges()}")
-        print(f"Number of negative edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_minus.number_of_edges()}")
+    print(f"Number of vertices in largest connected component after 1 round of error free kernelization: {largest_graph.number_of_nodes()}")
+    print(f"Number of positives edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_plus.number_of_edges()}")
+    print(f"Number of negative edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_minus.number_of_edges()}")
 
-        print(f"chicken algorithm violated edges:{chicken_algorithm(G)}")
+    print(f"chicken algorithm violated edges:{chicken_algorithm(G)}")
