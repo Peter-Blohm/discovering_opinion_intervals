@@ -10,8 +10,9 @@ import numpy as np
 import os
 
 class DraggableNode:
-    def __init__(self, graph, pos, node_colors, ax):
+    def __init__(self, graph, pos, node_colors, ax, draw_edges="existing"):
         self.graph = graph
+        self.draw_edges = draw_edges
         self.pos = pos
         self.node_colors = node_colors
         self.ax = ax
@@ -59,11 +60,11 @@ class DraggableNode:
         # Draw edges for G_plus (green) and G_minus (red)
         nx.draw_networkx_edges(self.graph.G_plus, self.pos, edge_color="green", ax=self.ax, label="Positive Edges")
 
-        if draw_edges != "missing":
+        if self.draw_edges != "missing":
             nx.draw_networkx_edges(self.graph.G_minus, self.pos, edge_color="red", ax=self.ax, label="Negative Edges")
 
         # Draw all possible edges not in G_plus or G_minus in blue
-        if draw_edges != "existing":
+        if self.draw_edges != "existing":
             all_possible_edges = set(nx.complete_graph(self.graph.G_plus.nodes).edges)
             existing_edges = set(self.graph.G_plus.edges).union(self.graph.G_minus.edges)
             missing_edges = all_possible_edges - existing_edges
@@ -75,7 +76,7 @@ class DraggableNode:
         plt.draw()
 
 
-def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, pos=None, draw_edges="all"):
+def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, draw_edges, pos=None):
     # Generate a color map for nodes
     num_nodes = len(graph.G_plus.nodes)
     colors = cm.rainbow(np.linspace(0, 1, num_nodes))  # Generate distinct colors
@@ -94,9 +95,9 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), gridspec_kw={'height_ratios': [2, 1]})
 
     # Initialize draggable nodes
-    draggable = DraggableNode(graph, pos, node_colors, ax1)
+    draggable = DraggableNode(graph, pos, node_colors, ax1, draw_edges=draw_edges)
 
-    draggable.redraw(draw_edges)  # Initial draw
+    draggable.redraw()  # Initial draw
 
 
     # Draw the interval embedding on the bottom subplot
@@ -112,6 +113,8 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file
 
     plt.tight_layout()
 
+    #plt.show()
+
     # Save the plot to a file
     plt.savefig(target_file_path)
 
@@ -119,8 +122,8 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file
 
 def build_constraint_model(model: gp.Model, graph: SignedGraph):
     V = graph.G_plus.nodes
-    E_plus = graph.G_plus.edges
-    E_minus = graph.G_minus.edges
+    E_plus = [(min(i,j),max(i,j)) for (i,j) in graph.G_plus.edges]
+    E_minus = [(min(i,j),max(i,j)) for (i,j) in graph.G_minus.edges]
     # large M constant, to deactivate constraints (bad model but simple)
     M = len(V)*2
 

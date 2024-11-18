@@ -57,6 +57,119 @@ class SignedGraph:
 
     def copy(self):
         return SignedGraph(self.G_plus.copy(), self.G_minus.copy())
+    
+    def is_embeddable(self):
+        """
+        Check if the signed graph is embeddable based on the specified condition.
+        The positive edges must form a single cycle.
+        """
+        # This thing only works for positive cycles
+
+        cycle = list(self.G_plus.nodes())
+        n = len(cycle)
+
+        # Precompute all possible missing edges (negative edges)
+        all_possible_edges = set(
+            (min(u, v), max(u, v)) for u in cycle for v in cycle if u != v
+        )
+        positive_edge_set = set(
+            (min(u, v), max(u, v)) for u, v in self.G_plus.edges()
+        )
+        negative_edge_set = set(
+            (min(u, v), max(u, v)) for u, v in self.G_minus.edges()
+        )
+        missing_edges = all_possible_edges - positive_edge_set - negative_edge_set
+        missing_edges = list(missing_edges)
+
+        # The number of missing edges should be exactly n - 3
+        required_missing_edges = n - 3
+        if len(missing_edges) < required_missing_edges:
+            #print(f"Not enough missing edges. Required: {required_missing_edges}, Available: {len(missing_edges)}")
+            return False
+
+        # Attempt to find a valid placement for any starting vertex
+        for start_idx in range(n):
+            ordered_cycle = [cycle[(start_idx + i) % n] for i in range(n)]
+
+            if (min(ordered_cycle[-1], ordered_cycle[1]), max(ordered_cycle[-1], ordered_cycle[1])) not in missing_edges:
+                continue
+
+            if self._backtrack_missing_edges(ordered_cycle, missing_edges, required_missing_edges, current_missing=[(min(ordered_cycle[-1], ordered_cycle[1]), max(ordered_cycle[-1], ordered_cycle[1]))]):
+                return True
+        return False
+
+    def _backtrack_missing_edges(self, ordered_cycle, missing_edges, edges_to_place, current_missing=None, left_ptr=1, right_ptr=-1):
+        """
+        Recursive backtracking function to place missing edges in a ladder-like pattern.
+
+        Parameters:
+        - ordered_cycle: List of vertices ordered starting from a specific start vertex.
+        - missing_edges: List of all possible missing edges (as tuples).
+        - edges_to_place: Number of missing edges to place.
+        - current_missing: Currently placed missing edges.
+        - left_ptr: Current left pointer index.
+        - right_ptr: Current right pointer index.
+
+        Returns:
+        - True if a valid placement is found, False otherwise.
+        """
+        if len(current_missing) == edges_to_place:
+            return True
+
+        if left_ptr >= right_ptr % len(ordered_cycle):
+            return False
+
+        options = []
+
+        # Calculate indices with wrap-around
+        left_vertex = ordered_cycle[left_ptr]
+        right_vertex = ordered_cycle[right_ptr]
+        next_right_vertex = ordered_cycle[(right_ptr - 1) % len(ordered_cycle)]
+        next_left_vertex = ordered_cycle[(left_ptr + 1) % len(ordered_cycle)]
+
+        option1 = (min(left_vertex, next_right_vertex), max(left_vertex, next_right_vertex))
+        option2 = (min(right_vertex, next_left_vertex), max(right_vertex, next_left_vertex))
+
+        # Check if the options are available in missing_edges and not already placed
+        if option1 in missing_edges and option1 not in current_missing:
+            options.append(("left_to_right", option1))
+        if option2 in missing_edges and option2 not in current_missing:
+            options.append(("right_to_left", option2))
+
+        for option_type, edge in options:
+            current_missing.append(edge)
+            if option_type == "left_to_right":
+                # Move left pointer forward
+                success = self._backtrack_missing_edges(
+                    ordered_cycle,
+                    missing_edges,
+                    edges_to_place,
+                    current_missing,
+                    left_ptr,
+                    right_ptr-1,
+                )
+            elif option_type == "right_to_left":
+                # Move right pointer backward
+                success = self._backtrack_missing_edges(
+                    ordered_cycle,
+                    missing_edges,
+                    edges_to_place,
+                    current_missing,
+                    left_ptr+1,
+                    right_ptr,
+                )
+            else:
+                print("wth is going on")
+                success = False
+
+            if success:
+                return True
+
+            # Backtrack
+            current_missing.pop()
+
+        # If no options lead to a solution
+        return False, left_ptr, right_ptr
 
 
 def read_signed_graph(file):

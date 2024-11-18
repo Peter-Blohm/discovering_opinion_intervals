@@ -1,7 +1,6 @@
 import os
 import argparse
 import random
-import networkx as nx
 from graph_utils.graph_embeddings.solve_embedding import check_embeddability, get_cycle_positions, plot_combined_graph_and_intervals
 from graph_utils.signed_graph import read_signed_graph
 
@@ -37,6 +36,7 @@ def generate_and_save_signed_graphs(num_nodes, target_count=20):
     os.makedirs(ok_dir_path, exist_ok=True)
     os.makedirs(bad_dir_path, exist_ok=True)
 
+    random.seed(123)
 
     for idx in range(target_count):
         random.shuffle(remaining_edges)
@@ -47,76 +47,20 @@ def generate_and_save_signed_graphs(num_nodes, target_count=20):
         edges = positive_edges + list(neg_edges)
         file_path = save_graph_to_file(edges, idx, graph_dir)
 
-        embeddable, _, _ = check_embeddability(file_path)
+        embeddable, start, end = check_embeddability(file_path)
+        graph = read_signed_graph(file_path)
+        print(f"For graph {idx}/{target_count} condition matches embeddability: {embeddable == graph.is_embeddable()}")
+        
 
         if embeddable:
-            for edge in remaining_edges[num_of_neg_edges:]:
-                tmp_path = save_graph_to_file(edges + [edge], idx, graph_dir, tmp=True)
-                tmp_embeddable, _, _ = check_embeddability(tmp_path)
-                if tmp_embeddable:
-                    edges.append(edge)
-                os.remove(tmp_path)
-
-            file_path = save_graph_to_file(edges, idx, graph_dir)
-            _, final_start, final_end = check_embeddability(file_path)
-
-            graph = read_signed_graph(file_path)
-            pos = get_cycle_positions(graph.G_plus.nodes) 
-
             target_file_path = os.path.join(ok_dir_path, os.path.basename(file_path)).replace(".txt", ".png")
-
-            plot_combined_graph_and_intervals(graph, final_start, final_end, target_file_path, pos=pos, draw_edges="missing")
-
-            G_choral = nx.Graph()
-
-            for u, v, sign in edges:
-                if sign == 1:
-                    G_choral.add_edge(u, v, color="green")
-            
-            for edge in remaining_edges[num_of_neg_edges:]:
-                if edge in edges:
-                    continue
-                u, v, _ = edge
-                G_choral.add_edge(u, v, color="blue")
-
-            # Check chordality
-            is_chordal = nx.is_chordal(G_choral)
-            print(f"Graph is chordal matches embeddability: {is_chordal}")
-    
+            draw_edges = "missing"
         else:
-            for neg_edge in neg_edges:
-                edges.remove(neg_edge)
-                tmp_path = save_graph_to_file(edges, idx, graph_dir, tmp=True)
-                tmp_embeddable, _, _ = check_embeddability(tmp_path)
-                if tmp_embeddable:
-                    edges.append(neg_edge)
-                os.remove(tmp_path)
-    
-            file_path = save_graph_to_file(edges, idx, graph_dir)
-            _, final_start, final_end = check_embeddability(file_path)
-    
-            graph = read_signed_graph(file_path)
-            pos = get_cycle_positions(graph.G_plus.nodes)
-    
             target_file_path = os.path.join(bad_dir_path, os.path.basename(file_path)).replace(".txt", ".png")
-    
-            plot_combined_graph_and_intervals(graph, final_start, final_end, target_file_path, pos=pos, draw_edges="existing")
+            draw_edges = "existing"
 
-            G_choral = nx.Graph()
-
-            for u, v, sign in edges:
-                if sign == 1:
-                    G_choral.add_edge(u, v, color="green")
-            
-            for edge in remaining_edges[num_of_neg_edges:]:
-                if edge in edges:
-                    continue
-                u, v, _ = edge
-                G_choral.add_edge(u, v, color="blue")
-
-            # Check chordality
-            is_chordal = nx.is_chordal(G_choral)
-            print(f"Graph is chordal matches embeddability: {not is_chordal}")
+        pos = get_cycle_positions(graph.G_plus.nodes) 
+        plot_combined_graph_and_intervals(graph, start, end, target_file_path, pos=pos, draw_edges=draw_edges)
         
 
 if __name__ == "__main__":
