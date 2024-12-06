@@ -1,7 +1,6 @@
 import gurobipy as gp
 from gurobipy import GRB
 
-from graph_utils.signed_graph_kernelization import kernelize_graph
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
 
 import networkx as nx
@@ -78,7 +77,7 @@ class DraggableNode:
         plt.draw()
 
 
-def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, draw_edges, pos=None):
+def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file_path, draw_edges, pos=None, show=False):
     # Generate a color map for nodes
     num_nodes = len(graph.G_plus.nodes)
     colors = cm.rainbow(np.linspace(0, 1, num_nodes))  # Generate distinct colors
@@ -115,7 +114,8 @@ def plot_combined_graph_and_intervals(graph, start_times, end_times, target_file
 
     plt.tight_layout()
 
-    #plt.show()
+    if show:
+        plt.show()
 
     # Save the plot to a file
     plt.savefig(target_file_path)
@@ -128,12 +128,12 @@ def build_constraint_model(model: gp.Model, graph: SignedGraph, hard_negative_ed
     E_plus = [(min(i,j),max(i,j)) for (i,j) in graph.G_plus.edges]
     E_minus = [(min(i,j),max(i,j)) for (i,j) in graph.G_minus.edges]
     # large M constant, to deactivate constraints (bad model but simple)
-    M = 1
-    eps = 10 ** -5
+    M = 2*len(V)
+    eps = 1
 
     # variables
-    s = model.addVars(V, vtype=GRB.CONTINUOUS, lb=0, ub=1, name="start")
-    t = model.addVars(V, vtype=GRB.CONTINUOUS, lb=0, ub=1, name="end")
+    s = model.addVars(V, vtype=GRB.CONTINUOUS, lb=0, ub=M, name="start")
+    t = model.addVars(V, vtype=GRB.CONTINUOUS, lb=0, ub=M, name="end")
     # x = model.addVars(((i, j) for i in V for j in V if i != j), vtype=GRB.BINARY, name="overlap")
     # we say these variables count towards the objective value with obj=1
     z_miss = model.addVars(E_plus, vtype=GRB.BINARY, name="penalty_miss", obj=1)
@@ -216,6 +216,26 @@ if __name__ == "__main__":
     os.makedirs(okay_dir, exist_ok=True)
     os.makedirs(bad_dir, exist_ok=True)
 
-    file = "data/cycle.txt"
+    file = "graph_0.txt"
+    #file = "data/cycle2.txt"
 
-    check_embeddability(file, okay_dir, bad_dir)
+    embeddable, start, end = check_embeddability(file)
+
+    graph = read_signed_graph(file)
+
+    #print(nx.is_chordal(graph.G_plus))
+
+    if embeddable:
+        target_file_path = os.path.join(okay_dir, os.path.basename(file)).replace(".txt", ".png")
+        draw_edges = "missing"
+    else:
+        target_file_path = os.path.join(bad_dir, os.path.basename(file)).replace(".txt", ".png")
+        draw_edges = "missing"
+
+    pos = get_cycle_positions(graph.G_plus.nodes) 
+
+    print(embeddable)
+
+    plot_combined_graph_and_intervals(graph, start, end, target_file_path, pos=pos, draw_edges=draw_edges, show=True)
+        
+
