@@ -107,14 +107,20 @@ def _find_one_seperated_components(graph: SignedGraph):
     split = False
 
     for node in combined_graph.nodes():
+        edges = list(combined_graph.edges(node))
+        print(node)
 
-        temp_combined_graph = combined_graph.copy()
-        temp_combined_graph.remove_node(node)        
+        # remove all the edges
+        combined_graph.remove_edges_from(edges)
+
+        connected_components = list(nx.connected_components(combined_graph))
+
+        print("Num connected components", len(connected_components))
+
         # Create a combined graph of positive and negative edges
-        
-        if not nx.is_connected(temp_combined_graph):
+        if len(connected_components) >= 3:
             # Get the connected components as sets of nodes
-            conn_components = list(nx.connected_components(temp_combined_graph))
+            conn_components = connected_components
             
             # Convert each component to a SignedGraph and add to results
             for component_nodes in conn_components:
@@ -122,6 +128,9 @@ def _find_one_seperated_components(graph: SignedGraph):
                 new_components.append(component)
                 split = True
             break
+
+        # add the edges back
+        combined_graph.add_edges_from(edges)
     
     if not split:
         new_components.append(signed_graph)
