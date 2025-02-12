@@ -1,7 +1,6 @@
 import networkx as nx
 
-from graph_utils.signed_graph import SignedGraph
-
+from graph_utils.signed_graph import SignedGraph, read_signed_graph
 
 def _find_pos_vertices(graph: SignedGraph):
     # returns a list of vertex ids which have no negative edges
@@ -44,6 +43,8 @@ def _delete_2mix_vertices(graph: SignedGraph):
     new_graph = graph.copy()
     new_graph.remove_nodes_from(pos_vertices)
     return new_graph
+
+#region Old code
 
 # def _find_one_seperated_components(graph: SignedGraph):
 #     # Find graph components that are separated by a single vertex
@@ -137,6 +138,8 @@ def _find_one_seperated_components(graph: SignedGraph):
         
     return new_components
 
+#endregion
+
 def kernelize_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
     """
     takes the networkx graph, performs EXACT kernelization methods and returns all subgraph kernels in a list
@@ -165,3 +168,13 @@ def kernelize_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
     for g in graphs:
         kernel_graphs.extend(kernelize_graph(g))
     return kernel_graphs
+
+if __name__ == "__main__": 
+    file = "data/all8graphs/graph_6.txt"
+
+    graph = read_signed_graph(file)
+
+    kernel_graphs = kernelize_graph(graph, safe=False)
+
+    print(len(kernel_graphs))
+    print([g.number_of_nodes() for g in kernel_graphs])

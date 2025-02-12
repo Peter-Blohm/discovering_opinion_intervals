@@ -178,7 +178,7 @@ def check_embeddability(file: str):
         env.setParam("OutputFlag", 0)
         env.setParam("TimeLimit", 180)
         env.setParam("SoftMemLimit", 16)  # GB (I think)
-        env.setParam("Threads", 15)  # TODO: this we need to play with at some point
+        env.setParam("Threads", 11)  # TODO: this we need to play with at some point
         env.start()
         with gp.Model("some_model_name", env=env) as model:
             try:
@@ -196,7 +196,7 @@ def check_embeddability(file: str):
                     
                     #print(f"Optimal solution found with objective: {model.ObjVal}")
 
-                    return model.ObjVal == 0, starts, ends
+                    return model.ObjVal, starts, ends
                 else:
                     print("no feasible solution found.")
 
@@ -216,10 +216,11 @@ if __name__ == "__main__":
     os.makedirs(okay_dir, exist_ok=True)
     os.makedirs(bad_dir, exist_ok=True)
 
-    file = "graph_0.txt"
-    #file = "data/cycle2.txt"
+    #file = "graph_0.txt"
+    file = "data/all8graphs/graph_10072.txt"
 
     embeddable, start, end = check_embeddability(file)
+    print(embeddable)
 
     graph = read_signed_graph(file)
 
@@ -227,10 +228,10 @@ if __name__ == "__main__":
 
     if embeddable:
         target_file_path = os.path.join(okay_dir, os.path.basename(file)).replace(".txt", ".png")
-        draw_edges = "missing"
+        draw_edges = "existing"
     else:
         target_file_path = os.path.join(bad_dir, os.path.basename(file)).replace(".txt", ".png")
-        draw_edges = "missing"
+        draw_edges = "existing"
 
     pos = get_cycle_positions(graph.G_plus.nodes) 
 
