@@ -5,7 +5,8 @@ import hmac
 import math
 from tqdm import tqdm
 import networkx as nx
-# Requires networkx>=2.8 for nx.weisfeiler_lehman_graph_hash
+# Requires networkx>=2.8 for nx.weisfeiler_
+# lehman_graph_hash
 
 from graph_utils.graph_embeddings.solve_embedding import check_embeddability
 from graph_utils.signed_graph import read_signed_graph, SignedGraph
@@ -56,91 +57,100 @@ def feistel_encrypt(num, num_bits, key, rounds=3):
     # Combine left and right
     encrypted = (left << right_bits) | right
     return encrypted
-
 def generate_all_signed_graphs(num_nodes, output_dir):
     """
-    Generates all possible signed graphs for a given number of nodes in a pseudorandom order and saves each graph to a file.
-    
-    This version uses a two‐step duplicate–pruning:
-      1. Build a NetworkX graph based only on the positive edges.
-      2. Compute a Weisfeiler–Lehman hash (using the edge attribute 'sign') of that graph.
-      3. For graphs with the same hash, run a full isomorphism check (using VF2) to decide if the graph is really isomorphic to one already processed.
+    Generates all possible signed graphs for a given number of nodes
     """
-    all_edges = [(i, j) for i in range(num_nodes) for j in range(i + 1, num_nodes)]
+
+    # Edges are given like this: (4, 5), (3, 5), (3, 4), (2, 5), (2, 4), (2, 3), (1, 5), (1, 4), (1, 3), (1, 2)
+    all_edges = [(i, j) for i in range(num_nodes, 0, -1) for j in range(num_nodes, i, -1)]
     m = len(all_edges)
     total_combinations = 2 ** math.comb(num_nodes,2)
     key = os.urandom(16)  # Generate a random 128-bit key
 
+    print("test")
     graph_count = 0
-    # This dict maps WL hash values to a list of already‐seen graphs (as NetworkX objects)
     canonical_reps = {}
+    for graph in range(total_combinations):
 
-    for i in tqdm(range(total_combinations)):
-        # if i%1000 == 0:
-        #     print(len(canonical_reps))
-
-        # Generate permuted index using Feistel cipher
-        permuted_i = i#feistel_encrypt(i, m, key)
-
-        # Convert to binary string of length m
-        binary_str = format(permuted_i, f'0{m}b')
-        if len(binary_str) > m:
-            binary_str = binary_str[-m:]
-
-        # Generate signs: '1' -> 1, '0' -> -1
-        signs = [1 if bit == '1' else -1 for bit in binary_str]
-
-        # Create the full edge list with signs (for saving and embeddability check)
-        edges = [(u, v, sign) for (u, v), sign in zip(all_edges, signs)]
-
-        # --- Build a NetworkX graph based on positive edges only ---
-        G = SignedGraph(nx.Graph(), nx.Graph())
-        for (u, v), sign in zip(all_edges, signs):
-            if sign == 1:
-                G.add_plus_edge(u, v)
-            else:
-                G.add_minus_edge(u, v)
-
-        # Compute a hash for the graph (using the edge attribute 'sign')
-        graph_hash = nx.weisfeiler_lehman_graph_hash(G.G_plus)
-
-        # Check against previously seen graphs with the same hash.
-        skip_graph = False
-        if graph_hash in canonical_reps:
-            for candidate in canonical_reps[graph_hash]:
-                # Use VF2 isomorphism with an edge_match that compares the 'sign' attribute.
-                GM = nx.algorithms.isomorphism.GraphMatcher(candidate, G.G_plus)
-                if GM.is_isomorphic():
-                    skip_graph = True
-                    break
-            if skip_graph:
-                continue
-            else:
-                canonical_reps[graph_hash].append(G.G_plus)
-        else:
-            canonical_reps[graph_hash] = [G.G_plus]
+        graph = feistel_encrypt(graph, m, key)
 
         
-        kernels = kernelize_graph(G)
-        if len(kernels) > 1:
-            #print(f"Multiple kernels found.")
-            continue
+        # binary_str = bin(graph)
+        # if binary_str.count('1') < num_nodes-1:
+        #     continue
 
-        if len(kernels) < 1:
-            #print(f"Graph falls apart.")
-            continue
+        # tmp = graph
+
+        # # Check for connectedness
+        # continue_flag = False
+        # for node_idx in range(1, num_nodes+1):
+
+        #     helper = 2 ** ((node_idx)*num_nodes - ((node_idx)*(node_idx+1)/2)) - 1
+        #     helper -= 2 ** ((node_idx-1)*num_nodes - ((node_idx-1)*(node_idx)/2)) - 1
             
-        if kernels[0].number_of_nodes() != num_nodes:
-            #print(f"Different kernel.")
-            continue
+        #     for prev in range(node_idx-1):
+        #         if prev == 0:
+        #             helper += 2**(node_idx - 2)
+        #         if prev > 0:
+        #             helper += 2 ** ((prev)*num_nodes - ((prev)*(prev+1)/2) + (node_idx-prev-2))
 
+        #     if graph & int(helper) == 0:
+        #         continue_flag = True
+        #         break
 
-        # Save the graph and check embeddability (only for non-duplicate graphs)
+        # if continue_flag:
+        #     continue
+
+        # # # Check for permutations
+        # # continue_flag = False
+        # # for node_idx in range(1, num_nodes-1):
+        # #     current = (tmp >> 1) & (2**(num_nodes-1-node_idx) - 1)
+        # #     nxt = (tmp >> num_nodes-node_idx) & (2**(num_nodes-1-node_idx) - 1)
+        # #     if nxt > current:
+        # #         continue_flag = True
+        # #         break
+        # #     tmp = tmp >> num_nodes-node_idx
+
+        # # if continue_flag:
+        # #     continue
+            
+        # # Save the graph and check embeddability (only for non-duplicate graphs)
+        # signs = [1 if bit == '1' else -1 for bit in binary_str]
+        # edges = [(u, v, sign) for (u, v), sign in zip(all_edges, signs)]
+
+        # # --- Build a NetworkX graph based on positive edges only ---
+        # G = SignedGraph(nx.Graph(), nx.Graph())
+        # for (u, v), sign in zip(all_edges, signs):
+        #     if sign == 1:
+        #         G.add_plus_edge(u, v)
+        #     else:
+        #         G.add_minus_edge(u, v)
+
+        # # Compute a hash for the graph (using the edge attribute 'sign')
+        # graph_hash = nx.weisfeiler_lehman_graph_hash(G.G_plus)
+
+        # # Check against previously seen graphs with the same hash.
+        # skip_graph = False
+        # if graph_hash in canonical_reps:
+        #     for candidate in canonical_reps[graph_hash]:
+        #         # Use VF2 isomorphism with an edge_match that compares the 'sign' attribute.
+        #         GM = nx.algorithms.isomorphism.GraphMatcher(candidate, G.G_plus)
+        #         if GM.is_isomorphic():
+        #             skip_graph = True
+        #             break
+        #     if skip_graph:
+        #         continue
+        #     else:
+        #         canonical_reps[graph_hash].append(G.G_plus)
+        # else:
+        #     canonical_reps[graph_hash] = [G.G_plus]
+            
         file_path = save_graph_to_file(edges, graph_count, output_dir)
-        #error, _, _ = check_embeddability(file_path)
-        # if error >= 6:
-        #     print(f"Something happened on graph {graph_count}.")
-        #    break
+        error, _, _ = check_embeddability(file_path)
+        if error >= 6:
+            print(f"Something happened on graph {graph_count}.")
+            break
         graph_count += 1
 
 if __name__ == "__main__":
