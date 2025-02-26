@@ -57,6 +57,7 @@ def feistel_encrypt(num, num_bits, key, rounds=3):
     # Combine left and right
     encrypted = (left << right_bits) | right
     return encrypted
+
 def generate_all_signed_graphs(num_nodes, output_dir):
     """
     Generates all possible signed graphs for a given number of nodes
@@ -72,17 +73,18 @@ def generate_all_signed_graphs(num_nodes, output_dir):
     graph_count = 0
     canonical_reps = {}
     for graph in range(total_combinations):
+        graph = graph ** graph % total_combinations
 
         graph = feistel_encrypt(graph, m, key)
 
         
-        # binary_str = bin(graph)
-        # if binary_str.count('1') < num_nodes-1:
-        #     continue
+        binary_str = bin(graph)
+        if binary_str.count('1') < num_nodes-1:
+            continue
 
-        # tmp = graph
+        tmp = graph
 
-        # # Check for connectedness
+        # Check for connectedness
         # continue_flag = False
         # for node_idx in range(1, num_nodes+1):
 
@@ -100,37 +102,38 @@ def generate_all_signed_graphs(num_nodes, output_dir):
         #         break
 
         # if continue_flag:
+        #     #print("continue")
         #     continue
 
-        # # # Check for permutations
-        # # continue_flag = False
-        # # for node_idx in range(1, num_nodes-1):
-        # #     current = (tmp >> 1) & (2**(num_nodes-1-node_idx) - 1)
-        # #     nxt = (tmp >> num_nodes-node_idx) & (2**(num_nodes-1-node_idx) - 1)
-        # #     if nxt > current:
-        # #         continue_flag = True
-        # #         break
-        # #     tmp = tmp >> num_nodes-node_idx
+        # Check for permutations
+        # continue_flag = False
+        # for node_idx in range(1, num_nodes-1):
+        #     current = (tmp >> 1) & (2**(num_nodes-1-node_idx) - 1)
+        #     nxt = (tmp >> num_nodes-node_idx) & (2**(num_nodes-1-node_idx) - 1)
+        #     if nxt > current:
+        #         continue_flag = True
+        #         break
+        #     tmp = tmp >> num_nodes-node_idx
 
-        # # if continue_flag:
-        # #     continue
+        # if continue_flag:
+        #     continue
             
-        # # Save the graph and check embeddability (only for non-duplicate graphs)
-        # signs = [1 if bit == '1' else -1 for bit in binary_str]
-        # edges = [(u, v, sign) for (u, v), sign in zip(all_edges, signs)]
+        # Save the graph and check embeddability (only for non-duplicate graphs)
+        signs = [1 if bit == '1' else -1 for bit in binary_str]
+        edges = [(u, v, sign) for (u, v), sign in zip(all_edges, signs)]
 
-        # # --- Build a NetworkX graph based on positive edges only ---
-        # G = SignedGraph(nx.Graph(), nx.Graph())
-        # for (u, v), sign in zip(all_edges, signs):
-        #     if sign == 1:
-        #         G.add_plus_edge(u, v)
-        #     else:
-        #         G.add_minus_edge(u, v)
+        # --- Build a NetworkX graph based on positive edges only ---
+        G = SignedGraph(nx.Graph(), nx.Graph())
+        for (u, v), sign in zip(all_edges, signs):
+            if sign == 1:
+                G.add_plus_edge(u, v)
+            else:
+                G.add_minus_edge(u, v)
 
         # # Compute a hash for the graph (using the edge attribute 'sign')
         # graph_hash = nx.weisfeiler_lehman_graph_hash(G.G_plus)
 
-        # # Check against previously seen graphs with the same hash.
+        # Check against previously seen graphs with the same hash.
         # skip_graph = False
         # if graph_hash in canonical_reps:
         #     for candidate in canonical_reps[graph_hash]:
@@ -147,10 +150,10 @@ def generate_all_signed_graphs(num_nodes, output_dir):
         #     canonical_reps[graph_hash] = [G.G_plus]
             
         file_path = save_graph_to_file(edges, graph_count, output_dir)
-        error, _, _ = check_embeddability(file_path)
-        if error >= 6:
-            print(f"Something happened on graph {graph_count}.")
-            break
+        #error, _, _ = check_embeddability(file_path)
+        # if error >= 6:
+        #     print(f"Something happened on graph {graph_count}.")
+        #     break
         graph_count += 1
 
 if __name__ == "__main__":
