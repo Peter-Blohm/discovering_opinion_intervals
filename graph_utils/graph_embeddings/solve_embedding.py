@@ -155,6 +155,8 @@ def build_constraint_model(model: gp.Model, graph: SignedGraph, hard_negative_ed
 
     #tightening constraints:
     # model.addConstrs((s[i]))
+    # disjoint_aux(i,j) = 0 => j links von i. 
+    # disjoint_aux(i,j) = 1 => i links von j.
 
 
 def get_cycle_positions(cycle):
