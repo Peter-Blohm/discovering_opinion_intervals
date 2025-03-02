@@ -5,7 +5,7 @@ import numpy as np
 
 
 class SignedGraph:
-    def __init__(self, G_plus, G_minus):
+    def __init__(self, G_plus: nx.Graph, G_minus: nx.Graph):
         self.G_plus = G_plus
         self.G_minus = G_minus
 
