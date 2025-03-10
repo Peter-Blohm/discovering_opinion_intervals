@@ -57,7 +57,7 @@ class SignedGraph:
     def copy(self):
         return SignedGraph(self.G_plus.copy(), self.G_minus.copy())
     
-def read_signed_graph(file):
+def read_signed_graph(file: str) -> SignedGraph:
     G = SignedGraph(nx.Graph(), nx.Graph())
 
     # Open the file and read the content

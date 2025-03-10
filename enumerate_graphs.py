@@ -4,6 +4,7 @@ import time
 import hmac
 import math
 from tqdm import tqdm
+import random
 import networkx as nx
 # Requires networkx>=2.8 for nx.weisfeiler_
 # lehman_graph_hash
@@ -72,11 +73,8 @@ def generate_all_signed_graphs(num_nodes, output_dir):
     print("test")
     graph_count = 0
     canonical_reps = {}
-    for graph in range(total_combinations):
-        graph = graph ** graph % total_combinations
-
-        graph = feistel_encrypt(graph, m, key)
-
+    for _ in range(total_combinations):
+        graph = random.randint(0, total_combinations)
         
         binary_str = bin(graph)
         if binary_str.count('1') < num_nodes-1:
