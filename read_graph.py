@@ -85,8 +85,6 @@ def write_signed_graph_to_hdf5(file_name, graph_name, graph, multiple_edges_enab
         
         # Store graph attributes
         group.attrs['multiple-edges-enabled'] = np.uint8(multiple_edges_enabled)
-        group.attrs['number-of-vertices'] = G.number_of_nodes()
-        group.attrs['number-of-edges'] = len(edges)
 
         # Convert edges to a NumPy array and store
         group.create_dataset('edges', data=edges, shape=(len(edges), 2), dtype=np.uint64)
@@ -96,7 +94,11 @@ def write_signed_graph_to_hdf5(file_name, graph_name, graph, multiple_edges_enab
 
         # Create the graph id
         graph_type_id = np.array([10000], dtype=np.uint64)  # Ensure it's a 1-element dataset
-        group.create_dataset('graph-type-id', data=graph_type_id, shape=(1,), dtype=np.uint64)
+        group.create_dataset('graph-type-id', data=np.intc(10000), shape=(), dtype=np.intc)
+
+        # Create number of vertices, and the rest
+        group.create_dataset('number-of-vertices', data=np.int64(G.number_of_nodes()), shape=(), dtype=np.int64)
+        group.create_dataset('number-of-edges', data=np.int64(len(edges)), shape=(), dtype=np.int64)
 
 
 if __name__ == "__main__":
