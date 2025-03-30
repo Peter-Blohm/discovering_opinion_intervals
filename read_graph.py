@@ -64,51 +64,12 @@ def chicken_algorithm(G: SignedGraph):
 
     return vio
 
-def write_signed_graph_to_hdf5(file_name, graph_name, graph, multiple_edges_enabled=False):
-    """
-    Writes a signed graph to an HDF5 file in the expected format.
-    
-    :param file_name: Name of the HDF5 file.
-    :param graph_name: Name of the graph group in the HDF5 file.
-    :param edges: List of tuples (source, target, weight) representing edges.
-    :param num_vertices: Total number of vertices in the graph.
-    :param multiple_edges_enabled: Whether multiple edges are allowed (default: False).
-    """
-    pos_edges = list(G.G_plus.edges)
-    neg_edges = list(G.G_minus.edges)
-    edges = np.array(pos_edges + neg_edges)
-
-    edge_values = np.array([1] * len(pos_edges) + [-1] * len(neg_edges))
-    
-    with h5py.File(file_name, 'w') as f:
-        group = f.create_group(graph_name)
-        
-        # Store graph attributes
-        group.attrs['multiple-edges-enabled'] = np.uint8(multiple_edges_enabled)
-
-        # Convert edges to a NumPy array and store
-        group.create_dataset('edges', data=edges, shape=(len(edges), 2), dtype=np.uint64)
-        
-        # Store edge weights separately
-        group.create_dataset('edge-values', data=edge_values, shape=(len(edges),), dtype=np.float64)
-
-        # Create the graph id
-        graph_type_id = np.array([10000], dtype=np.uint64)  # Ensure it's a 1-element dataset
-        group.create_dataset('graph-type-id', data=np.intc(10000), shape=(), dtype=np.intc)
-
-        # Create number of vertices, and the rest
-        group.create_dataset('number-of-vertices', data=np.int64(G.number_of_nodes()), shape=(), dtype=np.int64)
-        group.create_dataset('number-of-edges', data=np.int64(len(edges)), shape=(), dtype=np.int64)
-
 
 if __name__ == "__main__":
     #for file in os.listdir("data"):
     data = f"data/soc-sign-Slashdot090221.txt"
 
     G = read_signed_graph(data)
-
-    write_signed_graph_to_hdf5("graph.h5", "graph", G)
-
 
     print(f"Name: {data}")
     print(f"Vertices: {G.number_of_nodes()}")
