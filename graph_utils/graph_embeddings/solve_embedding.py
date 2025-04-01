@@ -29,7 +29,7 @@ def build_constraint_model(model: gp.Model, graph: SignedGraph, disjoint_aux: di
     t = model.addVars(V, vtype=GRB.CONTINUOUS, lb=0, ub=M, name="end")
     # x = model.addVars(((i, j) for i in V for j in V if i != j), vtype=GRB.BINARY, name="overlap")
     # we say these variables count towards the objective value with obj=1
-    z_miss = model.addVars(E_plus, vtype=GRB.BINARY, name="penalty_miss", obj=1000000)
+    z_miss = model.addVars(E_plus, vtype=GRB.BINARY, name="penalty_miss", obj=1)
     z_extra = model.addVars(E_minus, vtype=GRB.BINARY, name="penalty_extra", obj=1)
     # for dealing with the disjunction in non-overlap constraints
     if disjoint_aux is None:

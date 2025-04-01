@@ -45,23 +45,9 @@ def write_signed_graph_to_hdf5(file_name, graph_name, G, multiple_edges_enabled=
 
 if __name__ == "__main__":
     #for file in os.listdir("data"):
-    data = f"data/soc-sign-Slashdot090221.txt"
+    data = f"data/wiki_S.txt"
 
     G = read_signed_graph(data)
 
-    write_signed_graph_to_hdf5("graph.h5", "graph", G)
+    write_signed_graph_to_hdf5("wiki_S.h5", "graph", G)
 
-
-    print(f"Name: {data}")
-    print(f"Vertices: {G.number_of_nodes()}")
-    print(f"Edges: {G.number_of_edges()}")
-    print(f"Positive Edges: {G.G_plus.number_of_edges()}")
-    print(f"Negative edges {G.G_minus.number_of_edges()}")
-
-    # Kernelize the graph
-    graphs = kernelize_graph(G, safe=True)
-    largest_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
-
-    print(f"Number of vertices in largest connected component after 1 round of error free kernelization: {largest_graph.number_of_nodes()}")
-    print(f"Number of positives edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_plus.number_of_edges()}")
-    print(f"Number of negative edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_minus.number_of_edges()}")
