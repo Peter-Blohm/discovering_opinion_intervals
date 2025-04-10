@@ -5,6 +5,7 @@ use std::{env, fs, path::Path};
 use serde_json::json;
 use std::fs::File;
 use std::io::Write;
+use std::time::Instant;
 
 #[derive(Deserialize, Debug)]
 struct SignedEdge {
@@ -319,8 +320,12 @@ fn main() {
 
     let target_clusters = args[3].parse::<usize>().expect("Invalid target_clusters");
 
+    let start_time = Instant::now();
+    
     let node_labels = greedy_additive_edge_contraction(num_vertices, &edges, target_clusters);
 
+    let elapsed = start_time.elapsed();
+    println!("Execution time: {:.2?}", elapsed);
 
     let mut result = serde_json::Map::new();
     for (node_id, &cluster) in node_labels.iter().enumerate() {
