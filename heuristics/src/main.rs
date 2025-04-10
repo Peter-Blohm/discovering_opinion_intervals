@@ -181,8 +181,6 @@ impl Partition {
     }
 }
 
-// Believe it until here
-
 fn greedy_additive_edge_contraction(
     num_vertices: usize,
     edges: &[(usize, usize, i32)],
@@ -273,7 +271,6 @@ fn greedy_additive_edge_contraction(
         original_graph.remove_vertex(merge_vertex);
     }
 
-    // Replace edge labels with node labels
     let mut node_labels = Vec::with_capacity(num_vertices);
     for node in 0..num_vertices {
         node_labels.push(partition.find(node));
@@ -321,11 +318,11 @@ fn main() {
     let target_clusters = args[3].parse::<usize>().expect("Invalid target_clusters");
 
     let start_time = Instant::now();
-    
+
     let node_labels = greedy_additive_edge_contraction(num_vertices, &edges, target_clusters);
 
     let elapsed = start_time.elapsed();
-    println!("Execution time: {:.2?}", elapsed);
+    println!("Running time: {:.2?}", elapsed);
 
     let mut result = serde_json::Map::new();
     for (node_id, &cluster) in node_labels.iter().enumerate() {
