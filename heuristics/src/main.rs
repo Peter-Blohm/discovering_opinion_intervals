@@ -335,4 +335,33 @@ fn main() {
 
     let mut file = File::create(output_filename).expect("Failed to create output file");
     file.write_all(json_output.as_bytes()).expect("Failed to write to file");
+
+    let violations = cc_compute_violations(&graph, &node_labels);
+    println!("Violations: {}", violations);
+}
+
+/// Compute the number of violations based on node labels and the signed graph
+///
+/// A violation occurs when:
+/// - A negative edge connects nodes in the same cluster
+/// - A positive edge connects nodes in different clusters
+///
+/// # Arguments
+/// * `graph` - A SignedGraph
+/// * `node_labels` - The cluster assignment for each node
+///
+/// # Returns
+/// The number of violations
+fn cc_compute_violations(graph: &SignedGraph, node_labels: &[usize]) -> usize {
+    let mut violations = 0;
+
+    for edge in &graph.edges {
+        let same_cluster = node_labels[edge.source] == node_labels[edge.target];
+        
+        if (edge.weight < 0 && same_cluster) || (edge.weight > 0 && !same_cluster) {
+            violations += 1;
+        }
+    }
+
+    violations
 }
