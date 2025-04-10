@@ -6,6 +6,7 @@ use serde_json::json;
 use std::fs::File;
 use std::io::Write;
 use std::time::Instant;
+use rand::Rng;  
 
 #[derive(Deserialize, Debug)]
 struct SignedEdge {
@@ -338,6 +339,11 @@ fn main() {
 
     let violations = cc_compute_violations(&graph, &node_labels);
     println!("Violations: {}", violations);
+
+    let local_search_node_labels = cc_local_search(&graph, &node_labels);
+
+    let local_search_violations = cc_compute_violations(&graph, &local_search_node_labels);
+    println!("Local search violations: {}", local_search_violations);
 }
 
 /// Compute the number of violations based on node labels and the signed graph
@@ -364,4 +370,119 @@ fn cc_compute_violations(graph: &SignedGraph, node_labels: &[usize]) -> usize {
     }
 
     violations
+}
+
+// For local search I supposed ideally recompute violations only by checking neighbors
+
+fn cc_local_search(graph: &SignedGraph, node_labels: &[usize]) -> Vec<usize> {
+    let t_start = Instant::now();
+
+    let mut best_labels = node_labels.to_vec();
+    let mut best_violations = cc_compute_violations(graph, &best_labels);
+    
+    println!("Starting local search with {} violations", best_violations);
+    
+    // Find set of unique clusters
+    let mut unique_clusters: Vec<usize> = best_labels.iter().cloned().collect();
+    unique_clusters.sort();
+    unique_clusters.dedup();
+    
+    println!("Found {} unique clusters", unique_clusters.len());
+    
+    let mut rng = rand::rng();
+    let mut improved = true;
+    
+    // Create a random permutation of node indices to avoid bias
+    let node_indices: Vec<usize> = (0..best_labels.len()).collect();
+
+    // Add iteration tracking variables
+    let mut iteration_count = 0;
+    let mut last_report_time = Instant::now();
+    let mut last_iteration_count = 0;
+    let report_interval = std::time::Duration::from_secs(1);
+
+    while improved {
+        improved = false;
+        
+        let mut best_move_node_idx = None;
+        let mut best_move_cluster = None;
+        let mut best_move_violations = usize::MAX;
+        let mut best_move_counter = 0;
+        
+        for &node_idx in &node_indices {
+            let current_cluster = best_labels[node_idx];
+            for &cluster in &unique_clusters {
+                if cluster == current_cluster {
+                    continue; // Skip current assignment
+                }
+                
+                // Temporarily reassign the node
+                best_labels[node_idx] = cluster;
+                
+                // Calculate new violation count
+                let new_violations = cc_compute_violations(graph, &best_labels);
+                
+                // Increment iteration counter for each node-cluster evaluation
+                iteration_count += 1;
+                
+                // Report iterations per second at regular intervals
+                let now = Instant::now();
+                if now.duration_since(last_report_time) >= report_interval {
+                    let elapsed = now.duration_since(last_report_time).as_secs_f64();
+                    let iterations_in_interval = iteration_count - last_iteration_count;
+                    let iterations_per_second = iterations_in_interval as f64 / elapsed;
+                    println!("Iterations per second: {:.2} (total: {})", iterations_per_second, iteration_count);
+                    
+                    last_report_time = now;
+                    last_iteration_count = iteration_count;
+                }
+
+                // Reservoir sampling with size 1
+                if new_violations < best_move_violations {
+                    best_move_violations = new_violations;
+                    best_move_cluster = Some(cluster);
+                    best_move_node_idx = Some(node_idx);
+                    best_move_counter = 1;
+                } else if new_violations == best_move_violations {
+                    best_move_counter += 1;
+                    let prob = 1.0 / (best_move_counter as f64);
+                    if rng.random_bool(prob) {
+                        best_move_cluster = Some(cluster);
+                        best_move_node_idx = Some(node_idx);
+                    }
+                }
+                best_labels[node_idx] = current_cluster;
+            }
+        }
+            
+        if best_move_violations < best_violations {
+            best_labels[best_move_node_idx.unwrap()] = best_move_cluster.unwrap();
+            best_violations = best_move_violations;
+            improved = true;
+        }
+
+        // Increment iteration counter for each node-cluster evaluation
+        iteration_count += 1;
+        
+        // Report iterations per second at regular intervals
+        let now = Instant::now();
+        if now.duration_since(last_report_time) >= report_interval {
+            let elapsed = now.duration_since(last_report_time).as_secs_f64();
+            let iterations_in_interval = iteration_count - last_iteration_count;
+            let iterations_per_second = iterations_in_interval as f64 / elapsed;
+            println!("Iterations per second: {:.2} (total: {})", iterations_per_second, iteration_count);
+            
+            last_report_time = now;
+            last_iteration_count = iteration_count;
+        }
+    }
+    
+    let elapsed = t_start.elapsed();
+    let total_iterations_per_second = iteration_count as f64 / elapsed.as_secs_f64();
+    
+    println!("Local search completed in {:.2?}", elapsed);
+    println!("Total iterations: {}", iteration_count);
+    println!("Average iterations per second: {:.2}", total_iterations_per_second);
+    
+    best_labels
 }
