@@ -375,6 +375,14 @@ fn cc_compute_violations(graph: &SignedGraph, node_labels: &[usize]) -> usize {
 // For local search I supposed ideally recompute violations only by checking neighbors
 
 fn cc_local_search(graph: &SignedGraph, node_labels: &[usize]) -> Vec<usize> {
+    let num_vertices = node_labels.len();
+
+    let mut original_graph = DynamicGraph::new(num_vertices);
+
+    for edge in &graph.edges {
+        original_graph.update_edge_weight(edge.source, edge.target, edge.weight);
+    }
+
     let t_start = Instant::now();
 
     let mut best_labels = node_labels.to_vec();
@@ -420,23 +428,30 @@ fn cc_local_search(graph: &SignedGraph, node_labels: &[usize]) -> Vec<usize> {
                 best_labels[node_idx] = cluster;
                 
                 // Calculate new violation count
-                let new_violations = cc_compute_violations(graph, &best_labels);
+                // Compute violations delta by only checking adjacent vertices
+                let mut new_violations_delta: i32 = 0;
+                let old_cluster = current_cluster;
+                let new_cluster = cluster;
                 
-                // Increment iteration counter for each node-cluster evaluation
-                iteration_count += 1;
-                
-                // Report iterations per second at regular intervals
-                let now = Instant::now();
-                if now.duration_since(last_report_time) >= report_interval {
-                    let elapsed = now.duration_since(last_report_time).as_secs_f64();
-                    let iterations_in_interval = iteration_count - last_iteration_count;
-                    let iterations_per_second = iterations_in_interval as f64 / elapsed;
-                    println!("Iterations per second: {:.2} (total: {})", iterations_per_second, iteration_count);
+                // Check all neighbors of node_idx
+                for (&neighbor, &weight) in original_graph.get_adjacent_vertices(node_idx) {
+                    let neighbor_cluster = best_labels[neighbor];
                     
-                    last_report_time = now;
-                    last_iteration_count = iteration_count;
+                    // Old contribution
+                    if (weight < 0 && old_cluster == neighbor_cluster) || 
+                       (weight > 0 && old_cluster != neighbor_cluster) {
+                        new_violations_delta -= 1; // Remove old violation
+                    }
+                    
+                    // New contribution
+                    if (weight < 0 && new_cluster == neighbor_cluster) || 
+                       (weight > 0 && new_cluster != neighbor_cluster) {
+                        new_violations_delta += 1; // Add new violation
+                    }
                 }
-
+                
+                let new_violations = (best_violations as i32 + new_violations_delta) as usize;
+                
                 // Reservoir sampling with size 1
                 if new_violations < best_move_violations {
                     best_move_violations = new_violations;
@@ -454,7 +469,7 @@ fn cc_local_search(graph: &SignedGraph, node_labels: &[usize]) -> Vec<usize> {
                 best_labels[node_idx] = current_cluster;
             }
         }
-            
+
         if best_move_violations < best_violations {
             best_labels[best_move_node_idx.unwrap()] = best_move_cluster.unwrap();
             best_violations = best_move_violations;
