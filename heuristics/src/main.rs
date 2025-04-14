@@ -7,7 +7,7 @@ use serde_json::json;
 mod data_types;
 mod algorithms;
 
-use data_types::{SignedGraph, IntervalStructure, Instance};
+use data_types::{SignedGraph, IntervalStructure};
 use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search};
 
 fn main() {
@@ -31,11 +31,6 @@ fn main() {
     let interval_structure: IntervalStructure = serde_json::from_str(&interval_json_data)
         .unwrap_or_else(|_| panic!("Failed to parse interval JSON from {}", interval_filename.display()));
 
-    // let instance = Instance {
-    //     graph,
-    //     interval_structure,
-    // };
-
     let edges: Vec<_> = graph.edges.iter()
         .map(|e| (e.source as usize, e.target as usize, e.weight))
         .collect();
@@ -50,8 +45,10 @@ fn main() {
 
     let start_time = Instant::now();
 
+    // GAEC
     let node_labels = greedy_additive_edge_contraction(num_vertices, &edges, target_clusters);
 
+    // Postprocessing
     let elapsed = start_time.elapsed();
     println!("Running time: {:.2?}", elapsed);
 
@@ -66,11 +63,17 @@ fn main() {
     let mut file = File::create(output_filename).expect("Failed to create output file");
     file.write_all(json_output.as_bytes()).expect("Failed to write to file");
 
+    // Count violations
     let violations = cc_compute_violations(&graph, &node_labels);
     println!("Violations: {}", violations);
 
-    let local_search_node_labels = cc_local_search(&graph, &node_labels);
+    // Brute force interval structure
+    // let brute_force_intervals = brute_force_interval_structure(&graph, &node_labels, &interval_structure);
 
-    let local_search_violations = cc_compute_violations(&graph, &local_search_node_labels);
-    println!("Local search violations: {}", local_search_violations);
+    // Local search
+    // let local_search_node_labels = cc_local_search(&graph, &node_labels);
+
+    // // Count violations after local search
+    // let local_search_violations = cc_compute_violations(&graph, &local_search_node_labels);
+    // println!("Local search violations: {}", local_search_violations);
 }

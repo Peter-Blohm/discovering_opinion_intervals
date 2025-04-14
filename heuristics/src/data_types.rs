@@ -25,12 +25,6 @@ pub struct IntervalStructure {
     pub intervals: Vec<Interval>,
 }
 
-#[derive(Debug)]
-pub struct Instance {
-    pub graph: SignedGraph,
-    pub interval_structure: IntervalStructure,
-}
-
 pub struct DynamicGraph {
     pub vertices: Vec<HashMap<usize, i32>>,
 }
@@ -111,9 +105,7 @@ pub struct Partition {
     /// The root of a set points to itself (e.g., `parents[i] == i` for roots).
     parents: Vec<usize>,
     /// Rank (approximate depth) of the tree rooted at each element. Used during `merge` to keep trees shallow.
-    ranks: Vec<usize>,
-    /// Current number of disjoint sets (clusters) in the partition.
-    num_sets: usize,
+    ranks: Vec<usize>
 }
 
 impl Partition {
@@ -124,8 +116,7 @@ impl Partition {
     pub fn new(size: usize) -> Self {
         Partition {
             parents: (0..size).collect(), // Each element is its own parent initially
-            ranks: vec![0; size], // All ranks start at 0
-            num_sets: size, // Each element is its own set
+            ranks: vec![0; size] // All ranks start at 0
         }
     }
 
@@ -166,12 +157,6 @@ impl Partition {
                     self.ranks[x_root] += 1;
                 }
             }
-            self.num_sets -= 1; // Decrease the number of disjoint sets
         }
-    }
-
-    /// Returns the current number of disjoint sets (clusters) in the partition.
-    pub fn num_sets(&self) -> usize {
-        self.num_sets
     }
 }
