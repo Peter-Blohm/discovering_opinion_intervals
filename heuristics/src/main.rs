@@ -8,12 +8,14 @@ mod data_types;
 mod algorithms;
 
 use data_types::{SignedGraph, IntervalStructure};
-use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search};
+use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search, brute_force_interval_structure};
+
+// TODO: Handle case where graph is not connected and few clusters are desired
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 5 {
-        panic!("Usage: {} <graph_file> <interval_file> <target_clusters> <output_file>", args[0]);
+    if args.len() < 4 {
+        panic!("Usage: {} <graph_file> <interval_file> <output_file>", args[0]);
     }
 
     let graph_filename = Path::new(&args[1]);
@@ -35,13 +37,13 @@ fn main() {
         .map(|e| (e.source as usize, e.target as usize, e.weight))
         .collect();
 
-    let max_vertex = edges.iter()
+    let vertices: std::collections::HashSet<usize> = edges.iter()
         .flat_map(|&(a, b, _)| [a, b])
-        .max()
-        .unwrap_or(0);
-    let num_vertices = max_vertex + 1;
+        .collect();
+    let num_vertices = vertices.len();
 
-    let target_clusters = args[3].parse::<usize>().expect("Invalid target_clusters");
+    let target_clusters = interval_structure.intervals.len();
+    println!("Target clusters from interval structure: {}", target_clusters);
 
     let start_time = Instant::now();
 
@@ -57,7 +59,7 @@ fn main() {
         result.insert(node_id.to_string(), json!(cluster));
     }
 
-    let output_filename = &args[4];
+    let output_filename = &args[3];
     let json_output = serde_json::to_string_pretty(&result).expect("Failed to serialize JSON");
 
     let mut file = File::create(output_filename).expect("Failed to create output file");
@@ -67,9 +69,19 @@ fn main() {
     let violations = cc_compute_violations(&graph, &node_labels);
     println!("Violations: {}", violations);
 
-    // Brute force interval structure
-    // let brute_force_intervals = brute_force_interval_structure(&graph, &node_labels, &interval_structure);
 
+    // Find set of unique clusters
+    let mut unique_clusters: Vec<usize> = node_labels.iter().cloned().collect();
+    unique_clusters.sort();
+    unique_clusters.dedup();
+    
+    println!("Found {} unique clusters", unique_clusters.len());
+
+    // Brute force interval structure assignment
+    let (_, interval_violations) = brute_force_interval_structure(&graph, &node_labels, &interval_structure);
+
+    println!("Interval violations: {}", interval_violations);
+    
     // Local search
     // let local_search_node_labels = cc_local_search(&graph, &node_labels);
 

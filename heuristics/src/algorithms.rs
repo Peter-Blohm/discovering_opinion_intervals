@@ -2,7 +2,7 @@ use std::collections::{BinaryHeap, HashMap};
 use std::time::Instant;
 use rand::Rng;
 
-use crate::data_types::{DynamicEdge, DynamicGraph, SignedGraph, Partition};
+use crate::data_types::{DynamicEdge, DynamicGraph, SignedGraph, Partition, Interval, IntervalStructure};
 
 pub fn greedy_additive_edge_contraction(
     num_vertices: usize,
@@ -253,4 +253,156 @@ pub fn cc_local_search(graph: &SignedGraph, node_labels: &[usize]) -> Vec<usize>
     println!("Average iterations per second: {:.2}", total_iterations_per_second);
     
     best_labels
+}
+
+
+/// Check if two intervals overlap
+fn intervals_overlap(interval1: &Interval, interval2: &Interval) -> bool {
+    !(interval1.end <= interval2.start || interval2.end <= interval1.start)
+}
+
+/// Compute the number of violations for a specific mapping of clusters to intervals
+fn compute_interval_violations(
+    graph: &SignedGraph,
+    node_labels: &[usize],
+    interval_structure: &IntervalStructure,
+    cluster_to_interval_map: &HashMap<usize, usize>
+) -> usize {
+    let mut violations = 0;
+
+    for edge in &graph.edges {
+        let source_cluster = node_labels[edge.source];
+        let target_cluster = node_labels[edge.target];
+        
+        // For edges within the same cluster
+        if source_cluster == target_cluster {
+            // For negative edges within the same cluster, it's always a violation
+            // as they'll be assigned to the same interval
+            if edge.weight < 0 {
+                violations += 1;
+            }
+            continue;
+        }
+        
+        let source_interval_idx = *cluster_to_interval_map.get(&source_cluster).unwrap_or(&0);
+        let target_interval_idx = *cluster_to_interval_map.get(&target_cluster).unwrap_or(&0);
+        
+        let source_interval = &interval_structure.intervals[source_interval_idx];
+        let target_interval = &interval_structure.intervals[target_interval_idx];
+        
+        let intervals_overlap = intervals_overlap(source_interval, target_interval);
+        
+        // Violation if:
+        // - Positive edge and intervals don't overlap
+        // - Negative edge and intervals overlap
+        if (edge.weight > 0 && !intervals_overlap) || (edge.weight < 0 && intervals_overlap) {
+            violations += 1;
+        }
+    }
+
+    violations
+}
+
+/// Generate all permutations recursively
+fn generate_permutations(
+    current: &mut Vec<usize>,
+    remaining: &mut Vec<usize>,
+    permutations: &mut Vec<Vec<usize>>
+) {
+    if remaining.is_empty() {
+        permutations.push(current.clone());
+        return;
+    }
+    
+    let n = remaining.len();
+    for i in 0..n {
+        let element = remaining.remove(i);
+        current.push(element);
+        
+        generate_permutations(current, remaining, permutations);
+        
+        // Backtrack
+        current.pop();
+        remaining.insert(i, element);
+    }
+}
+
+/// Brute force all possible assignments from clusters to intervals to minimize violations
+pub fn brute_force_interval_structure(
+    graph: &SignedGraph,
+    node_labels: &[usize],
+    interval_structure: &IntervalStructure
+) -> (HashMap<usize, usize>, usize) {
+    // Find unique clusters - these can be arbitrary numbers
+    let mut unique_clusters: Vec<usize> = node_labels.iter().cloned().collect();
+    unique_clusters.sort();
+    unique_clusters.dedup();
+    
+    // println!("Unique clusters: {:?}", unique_clusters);
+    
+    let num_clusters = unique_clusters.len();
+    let num_intervals = interval_structure.intervals.len();
+    
+    println!("Brute-forcing {} clusters to {} intervals", num_clusters, num_intervals);
+    
+    // If number of clusters > number of intervals, we can't map each cluster to a unique interval
+    if num_clusters != num_intervals {
+        panic!("Error: Number of clusters ({}) and number of intervals ({}) don't match.", 
+               num_clusters, num_intervals);
+    }
+    
+    // Generate all possible interval indices to assign
+    let interval_indices: Vec<usize> = (0..num_intervals).collect();
+    
+    let mut current_permutation: Vec<usize> = Vec::new();
+    let mut permutations: Vec<Vec<usize>> = Vec::new();
+    
+    // We only need permutations of length equal to the number of clusters
+    let mut remaining_indices = interval_indices.clone();
+    generate_permutations(&mut current_permutation, &mut remaining_indices, &mut permutations);
+    
+    let total_permutations = permutations.len();
+    println!("Testing {} permutations", total_permutations);
+    
+    let start_time = Instant::now();
+    let mut best_violations = usize::MAX;
+    let mut best_mapping = HashMap::new();
+    
+    // For progress reporting
+    let report_every = std::cmp::max(1, total_permutations / 100);
+    
+    // Try each permutation
+    for (i, perm) in permutations.iter().enumerate() {
+        // Create a mapping from each unique cluster ID to an interval index
+        let mut cluster_to_interval = HashMap::new();
+        for (j, &cluster) in unique_clusters.iter().enumerate() {
+            if j < perm.len() {
+                cluster_to_interval.insert(cluster, perm[j]);
+            }
+        }
+        
+        let violations = compute_interval_violations(
+            graph, 
+            node_labels, 
+            interval_structure, 
+            &cluster_to_interval
+        );
+        
+        if violations < best_violations {
+            best_violations = violations;
+            best_mapping = cluster_to_interval.clone();
+        }
+        
+        // Report progress
+        if i % report_every == 0 {
+            let progress = (i as f64 / total_permutations as f64) * 100.0;
+            println!("Progress: {:.1}% ({}/{})", progress, i, total_permutations);
+        }
+    }
+    
+    let elapsed = start_time.elapsed();
+    println!("Brute force completed in {:.2?}", elapsed);
+    println!("Best violation count: {}", best_violations);
+    
+    (best_mapping, best_violations)
 }
