@@ -104,7 +104,9 @@ pub fn greedy_additive_edge_contraction(
 pub fn greedy_absolute_interval_contraction(
     num_vertices: usize,
     edges: &Vec<SignedEdge>,
-    interval_structure: &IntervalStructure
+    interval_structure: &IntervalStructure,
+    num_groups: usize, // number of groups
+    num_of_runs: usize,
 ) -> Vec<usize> {
     let mut original_graph = DynamicGraph::new(num_vertices);
     for edge in edges {
@@ -112,17 +114,23 @@ pub fn greedy_absolute_interval_contraction(
     }
 
     let num_intervals = interval_structure.intervals.len();
+    let group_size = (num_vertices + num_groups - 1) / num_groups; // Ceil
     
     // Create a num_intervals x num_vertices matrix for edge editions
     let mut edge_weights = vec![vec![0; num_vertices]; num_intervals];
-    let mut queue = BinaryHeap::new();
+
+    let mut group_queues = Vec::with_capacity(num_groups + 1); // Each group gets a queue for runs 2+
+    for _ in 0..=num_groups {
+        group_queues.push(BinaryHeap::new());
+    }
+    
     
     // Initialize queue with all vertex-interval pairs
     for vertex in 0..num_vertices {
         for interval_idx in 0..num_intervals {
             edge_weights[interval_idx][vertex] = 0; 
 
-            queue.push(DynamicEdge {
+            group_queues[0].push(DynamicEdge {
                 a: vertex,
                 b: interval_idx,
                 edition: 1,
@@ -132,23 +140,33 @@ pub fn greedy_absolute_interval_contraction(
     }
     
     let mut node_labels = vec![0; num_vertices];
-    let mut assigned = vec![false; num_vertices];
+    let mut assigned = vec![0; num_vertices];
+
+    let mut counter = 0;
     
+    println!("Starting greedy absolute interval contraction with {} vertices and {} intervals", num_vertices, num_intervals);
+
     // Process until all vertices are assigned
-    while assigned.iter().any(|&a| !a) {
-        while let Some(edge) = queue.pop() {
+    while assigned.iter().any(|&a| a == 0) {
+        while let Some(edge) = group_queues[0].pop() {
             let vertex = edge.a;
             let interval_idx = edge.b;
             
             // Skip if already assigned or edition is outdated
-            if assigned[vertex] || edge_weights[interval_idx][vertex] != edge.weight {
+            if assigned[vertex] != 0 || edge_weights[interval_idx][vertex] != edge.weight {
                 continue;
             }
             
             // Assign the vertex to this interval
             node_labels[vertex] = interval_idx;
-            assigned[vertex] = true;
+            counter = counter + 1;
+            assigned[vertex] = ((counter + group_size - 1) / group_size) as usize;
             
+            if assigned[vertex] > num_groups {
+                println!("Counter: {}, l: {}, assigned[{}]: {}", counter, num_groups, vertex, assigned[vertex]);
+                panic!("Error: Assigned group exceeds the number of groups.");
+            }
+
             let interval_i = &interval_structure.intervals[interval_idx];
             
             // Process all neighbors of the vertex
@@ -158,10 +176,6 @@ pub fn greedy_absolute_interval_contraction(
                 .collect();
             
             for u in neighbors {
-                if assigned[u] {
-                    continue;
-                }
-                
                 let edge_weight = original_graph.get_edge_weight(vertex, u);
                 
                 if edge_weight > 0 {
@@ -171,8 +185,8 @@ pub fn greedy_absolute_interval_contraction(
                         if intervals_overlap(interval_i, interval_j) {
                             edge_weights[j][u] += 1;
                             let new_weight = edge_weights[j][u];
-                            
-                            queue.push(DynamicEdge {
+
+                            group_queues[assigned[u]].push(DynamicEdge {
                                 a: u,
                                 b: j,
                                 edition: 1,
@@ -188,7 +202,7 @@ pub fn greedy_absolute_interval_contraction(
                             edge_weights[j][u] += 1;
                             let new_weight = edge_weights[j][u];
                             
-                            queue.push(DynamicEdge {
+                            group_queues[assigned[u]].push(DynamicEdge {
                                 a: u,
                                 b: j,
                                 edition: 1,
@@ -199,10 +213,142 @@ pub fn greedy_absolute_interval_contraction(
                 }
             }
             
+            if counter % group_size == 0 {
+                let prev_group = assigned[vertex];
+                // Reset edge_weights for all vertices assigned to the previous group and all intervals
+                for v in 0..num_vertices {
+                    if assigned[v] == prev_group {
+                        for interval_idx in 0..num_intervals {
+                            edge_weights[interval_idx][v] = 0;
+                        }
+                    }
+                }
+            }
+
             break; // Move to next vertex after assignment
         }
     }
-    
+
+    for runidx in 1..num_of_runs {
+
+        // Fallback values
+        for vertex in 0..num_vertices {
+            for interval_idx in 0..num_intervals {
+                let group_idx = assigned[vertex];
+
+                group_queues[group_idx].push(DynamicEdge {
+                    a: vertex,
+                    b: interval_idx,
+                    edition: 1,
+                    weight: 0,
+                });
+            }
+        }
+
+        println!("Run {}", runidx);
+        for group_idx in 1..=num_groups {
+            // set all elements in assigned that are i equal to 0
+            for j in 0..num_vertices {
+                if assigned[j] == group_idx {
+                    assigned[j] = 0;
+                }
+            }
+
+            while assigned.iter().any(|&a| a == 0) {
+                while let Some(edge) = group_queues[group_idx].pop() {
+                    let vertex = edge.a;
+                    let interval_idx = edge.b;
+                    
+                    // Skip if already assigned or edition is outdated
+                    if assigned[vertex] != 0 || edge_weights[interval_idx][vertex] != edge.weight {
+                        continue;
+                    }
+                    
+                    // Assign the vertex to this interval
+                    node_labels[vertex] = interval_idx;
+                    assigned[vertex] = group_idx;
+                    
+                    let interval_i = &interval_structure.intervals[interval_idx];
+                    
+                    // Process all neighbors of the vertex
+                    let neighbors: Vec<usize> = original_graph.get_adjacent_vertices(vertex)
+                        .keys()
+                        .cloned()
+                        .collect();
+                    
+                    for u in neighbors {
+                        let edge_weight = original_graph.get_edge_weight(vertex, u);
+                        
+                        if edge_weight > 0 {
+                            // Positive edge: increment overlapping intervals
+                            for j in 0..num_intervals {
+                                let interval_j = &interval_structure.intervals[j];
+                                if intervals_overlap(interval_i, interval_j) {
+                                    edge_weights[j][u] += 1;
+                                    let new_weight = edge_weights[j][u];
+        
+                                    if assigned[u] == 0 {
+                                        group_queues[group_idx].push(DynamicEdge {
+                                            a: u,
+                                            b: j,
+                                            edition: 1,
+                                            weight: new_weight,
+                                        });
+                                    } else {
+                                        // If the vertex is already assigned to a different group, push to that group
+                                        group_queues[assigned[u]].push(DynamicEdge {
+                                            a: u,
+                                            b: j,
+                                            edition: 1,
+                                            weight: new_weight,
+                                        });
+                                    }
+                                }
+                            }
+                        } else if edge_weight < 0 {
+                            // Negative edge: increment non-overlapping intervals
+                            for j in 0..num_intervals {
+                                let interval_j = &interval_structure.intervals[j];
+                                if !intervals_overlap(interval_i, interval_j) {
+                                    edge_weights[j][u] += 1;
+                                    let new_weight = edge_weights[j][u];
+                                    
+                                    if assigned[u] == 0 {
+                                        group_queues[group_idx].push(DynamicEdge {
+                                            a: u,
+                                            b: j,
+                                            edition: 1,
+                                            weight: new_weight,
+                                        });
+                                    } else {
+                                        // If the vertex is already assigned to a different group, push to that group
+                                        group_queues[assigned[u]].push(DynamicEdge {
+                                            a: u,
+                                            b: j,
+                                            edition: 1,
+                                            weight: new_weight,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    break; 
+                }
+            }     
+
+            for v in 0..num_vertices {
+                if assigned[v] == group_idx {
+                    for interval_idx in 0..num_intervals {
+                        edge_weights[interval_idx][v] = 0;
+                    }
+                }
+            }   
+            group_queues[group_idx].clear();
+        }
+    }
+
     node_labels
 }
 

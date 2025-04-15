@@ -15,8 +15,9 @@ use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_loc
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
-        println!("Usage: {} <graph_file> <interval_file> <output_file> <algorithm>", args[0]);
+        println!("Usage: {} <graph_file> <interval_file> <output_file> <algorithm> [opts]", args[0]);
         println!("Algorithms: gaec (Greedy Additive Edge Contraction), gaic (Greedy Absolute Interval Contraction)");
+        println!("Options for gaic: --runs <num> (default: 5)");
         std::process::exit(1);
     }
 
@@ -70,8 +71,16 @@ fn main() {
     println!("Target clusters from interval structure: {}", target_clusters);
 
     if algorithm == "gaic" {
+        // Parse the number of steps from command line args if provided
+        let runs = args.iter().position(|arg| arg == "--runs")
+            .and_then(|pos| args.get(pos + 1))
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(5); // Default value if not provided
+        
+        println!("GAIC runs: {}", runs);
+        
         let start_time = Instant::now();
-        let interval_labels = greedy_absolute_interval_contraction(num_vertices, &edges, &interval_structure);
+        let interval_labels = greedy_absolute_interval_contraction(num_vertices, &edges, &interval_structure, 100, runs);
         
         let elapsed = start_time.elapsed();
         println!("Running time: {:.2?}", elapsed);
