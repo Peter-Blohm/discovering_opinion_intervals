@@ -2,31 +2,31 @@ use std::collections::{BinaryHeap, HashMap};
 use std::time::Instant;
 use rand::Rng;
 
-use crate::data_types::{DynamicEdge, DynamicGraph, SignedGraph, Partition, Interval, IntervalStructure};
+use crate::data_types::{DynamicEdge, DynamicGraph, Partition, Interval, IntervalStructure, SignedEdge};
 
 pub fn greedy_additive_edge_contraction(
     num_vertices: usize,
-    edges: &[(usize, usize, i32)],
+    edges: &Vec<SignedEdge>,
     target_clusters: usize,
 ) -> Vec<usize> {
     let mut original_graph = DynamicGraph::new(num_vertices);
     let mut edge_editions = vec![HashMap::new(); num_vertices];
     let mut queue = BinaryHeap::new();
 
-    for &(a, b, weight) in edges {
-        original_graph.update_edge_weight(a, b, weight);
+    for edge in edges {
+        original_graph.update_edge_weight(edge.source, edge.target, edge.weight);
 
-        let (a_sorted, b_sorted) = if a <= b { (a, b) } else { (b, a) };
+        let (a_sorted, b_sorted) = if edge.source <= edge.target { (edge.source, edge.target) } else { (edge.target, edge.source) };
 
-        *edge_editions[a].entry(b).or_insert(0) += 1;
-        let edition = edge_editions[b].entry(a).or_insert(0);
+        *edge_editions[edge.source].entry(edge.target).or_insert(0) += 1;
+        let edition = edge_editions[edge.target].entry(edge.source).or_insert(0);
         *edition += 1;
 
         queue.push(DynamicEdge {
             a: a_sorted,
             b: b_sorted,
             edition: *edition,
-            weight,
+            weight: edge.weight,
         });
     }
 
@@ -108,15 +108,15 @@ pub fn greedy_additive_edge_contraction(
 /// - A positive edge connects nodes in different clusters
 ///
 /// # Arguments
-/// * `graph` - A SignedGraph
+/// * `edges` - A list of SignedEdges
 /// * `node_labels` - The cluster assignment for each node
 ///
 /// # Returns
 /// The number of violations
-pub fn cc_compute_violations(graph: &SignedGraph, node_labels: &[usize]) -> usize {
+pub fn cc_compute_violations(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> usize {
     let mut violations = 0;
 
-    for edge in &graph.edges {
+    for edge in edges {
         let same_cluster = node_labels[edge.source] == node_labels[edge.target];
         
         if (edge.weight < 0 && same_cluster) || (edge.weight > 0 && !same_cluster) {
@@ -127,19 +127,19 @@ pub fn cc_compute_violations(graph: &SignedGraph, node_labels: &[usize]) -> usiz
     violations
 }
 
-pub fn cc_local_search(graph: &SignedGraph, node_labels: &[usize]) -> Vec<usize> {
+pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<usize> {
     let num_vertices = node_labels.len();
 
     let mut original_graph = DynamicGraph::new(num_vertices);
 
-    for edge in &graph.edges {
+    for edge in edges {
         original_graph.update_edge_weight(edge.source, edge.target, edge.weight);
     }
 
     let t_start = Instant::now();
 
     let mut best_labels = node_labels.to_vec();
-    let mut best_violations = cc_compute_violations(graph, &best_labels);
+    let mut best_violations = cc_compute_violations(edges, &best_labels);
     
     println!("Starting local search with {} violations", best_violations);
     
@@ -263,14 +263,14 @@ fn intervals_overlap(interval1: &Interval, interval2: &Interval) -> bool {
 
 /// Compute the number of violations for a specific mapping of clusters to intervals
 fn compute_interval_violations(
-    graph: &SignedGraph,
+    edges: &Vec<SignedEdge>,
     node_labels: &[usize],
     interval_structure: &IntervalStructure,
     cluster_to_interval_map: &HashMap<usize, usize>
 ) -> usize {
     let mut violations = 0;
 
-    for edge in &graph.edges {
+    for edge in edges {
         let source_cluster = node_labels[edge.source];
         let target_cluster = node_labels[edge.target];
         
@@ -329,7 +329,7 @@ fn generate_permutations(
 
 /// Brute force all possible assignments from clusters to intervals to minimize violations
 pub fn brute_force_interval_structure(
-    graph: &SignedGraph,
+    edges: &Vec<SignedEdge>,
     node_labels: &[usize],
     interval_structure: &IntervalStructure
 ) -> (HashMap<usize, usize>, usize) {
@@ -382,7 +382,7 @@ pub fn brute_force_interval_structure(
         }
         
         let violations = compute_interval_violations(
-            graph, 
+            edges, 
             node_labels, 
             interval_structure, 
             &cluster_to_interval

@@ -7,7 +7,7 @@ use serde_json::json;
 mod data_types;
 mod algorithms;
 
-use data_types::{SignedGraph, IntervalStructure};
+use data_types::{SignedGraph, IntervalStructure, SignedEdge};
 use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search, brute_force_interval_structure};
 
 // TODO: Handle case where graph is not connected and few clusters are desired
@@ -33,14 +33,33 @@ fn main() {
     let interval_structure: IntervalStructure = serde_json::from_str(&interval_json_data)
         .unwrap_or_else(|_| panic!("Failed to parse interval JSON from {}", interval_filename.display()));
 
-    let edges: Vec<_> = graph.edges.iter()
-        .map(|e| (e.source as usize, e.target as usize, e.weight))
+    let edges: Vec<SignedEdge> = graph.edges.iter()
+        .map(|edge| {
+            let source = edge.source;
+            let target = edge.target;
+            let weight = edge.weight;
+            SignedEdge { source, target, weight }
+        })
         .collect();
 
     let vertices: std::collections::HashSet<usize> = edges.iter()
-        .flat_map(|&(a, b, _)| [a, b])
+        .flat_map(|edge| [edge.source, edge.target])
         .collect();
     let num_vertices = vertices.len();
+
+    // Remap vertices to a contiguous range
+    let mut vertex_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    let mut remapped_edges = Vec::new();
+    for (new_id, &old_id) in vertices.iter().enumerate() {
+        vertex_map.insert(old_id, new_id);
+    }
+    for edge in &edges {
+        let new_a = *vertex_map.get(&edge.source).unwrap();
+        let new_b = *vertex_map.get(&edge.target).unwrap();
+        remapped_edges.push(SignedEdge { source: new_a, target: new_b, weight: edge.weight });
+    }
+    let edges = remapped_edges;
+
 
     let target_clusters = interval_structure.intervals.len();
     println!("Target clusters from interval structure: {}", target_clusters);
@@ -55,7 +74,15 @@ fn main() {
     println!("Running time: {:.2?}", elapsed);
 
     let mut result = serde_json::Map::new();
-    for (node_id, &cluster) in node_labels.iter().enumerate() {
+
+    // Remap from internal indices back to original node IDs
+    let mut reverse_vertex_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    for (&orig_id, &new_id) in &vertex_map {
+        reverse_vertex_map.insert(new_id, orig_id);
+    }
+    
+    for (internal_id, &cluster) in node_labels.iter().enumerate() {
+        let node_id = reverse_vertex_map.get(&internal_id).unwrap_or(&internal_id);
         result.insert(node_id.to_string(), json!(cluster));
     }
 
@@ -66,7 +93,7 @@ fn main() {
     file.write_all(json_output.as_bytes()).expect("Failed to write to file");
 
     // Count violations
-    let violations = cc_compute_violations(&graph, &node_labels);
+    let violations = cc_compute_violations(&edges, &node_labels);
     println!("Violations: {}", violations);
 
 
@@ -78,7 +105,7 @@ fn main() {
     println!("Found {} unique clusters", unique_clusters.len());
 
     // Brute force interval structure assignment
-    let (_, interval_violations) = brute_force_interval_structure(&graph, &node_labels, &interval_structure);
+    let (_, interval_violations) = brute_force_interval_structure(&edges, &node_labels, &interval_structure);
 
     println!("Interval violations: {}", interval_violations);
     
