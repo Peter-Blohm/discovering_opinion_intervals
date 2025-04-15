@@ -18,6 +18,9 @@ fn main() {
         panic!("Usage: {} <graph_file> <interval_file> <output_file>", args[0]);
     }
 
+    let run_cc_local_search = false;
+
+
     let graph_filename = Path::new(&args[1]);
     let graph_json_data = fs::read_to_string(graph_filename)
         .unwrap_or_else(|_| panic!("Failed to read file: {}", graph_filename.display()));
@@ -109,10 +112,13 @@ fn main() {
 
     println!("Interval violations: {}", interval_violations);
     
-    // Local search
-    // let local_search_node_labels = cc_local_search(&graph, &node_labels);
+    if run_cc_local_search {
+        // Local search
+        let local_search_node_labels = cc_local_search(&edges, &node_labels);
+    
+        // Count violations after local search
+        let local_search_violations = cc_compute_violations(&edges, &local_search_node_labels);
+        println!("Local search violations: {}", local_search_violations);
 
-    // // Count violations after local search
-    // let local_search_violations = cc_compute_violations(&graph, &local_search_node_labels);
-    // println!("Local search violations: {}", local_search_violations);
+    }
 }
