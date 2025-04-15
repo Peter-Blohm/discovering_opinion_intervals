@@ -101,6 +101,112 @@ pub fn greedy_additive_edge_contraction(
     node_labels
 }
 
+pub fn greedy_absolute_interval_contraction(
+    num_vertices: usize,
+    edges: &Vec<SignedEdge>,
+    interval_structure: &IntervalStructure
+) -> Vec<usize> {
+    let mut original_graph = DynamicGraph::new(num_vertices);
+    for edge in edges {
+        original_graph.update_edge_weight(edge.source, edge.target, edge.weight);
+    }
+
+    let num_intervals = interval_structure.intervals.len();
+    
+    // Create a num_intervals x num_vertices matrix for edge editions
+    let mut edge_weights = vec![vec![0; num_vertices]; num_intervals];
+    let mut queue = BinaryHeap::new();
+    
+    // Initialize queue with all vertex-interval pairs
+    for vertex in 0..num_vertices {
+        for interval_idx in 0..num_intervals {
+            edge_weights[interval_idx][vertex] = 0; 
+
+            queue.push(DynamicEdge {
+                a: vertex,
+                b: interval_idx,
+                edition: 1,
+                weight: 0,
+            });
+        }
+    }
+    
+    let mut node_labels = vec![0; num_vertices];
+    let mut assigned = vec![false; num_vertices];
+    
+    // Process until all vertices are assigned
+    while assigned.iter().any(|&a| !a) {
+        while let Some(edge) = queue.pop() {
+            let vertex = edge.a;
+            let interval_idx = edge.b;
+            
+            // Skip if already assigned or edition is outdated
+            if assigned[vertex] || edge_weights[interval_idx][vertex] != edge.weight {
+                continue;
+            }
+            
+            // Assign the vertex to this interval
+            node_labels[vertex] = interval_idx;
+            assigned[vertex] = true;
+            
+            let interval_i = &interval_structure.intervals[interval_idx];
+            
+            // Process all neighbors of the vertex
+            let neighbors: Vec<usize> = original_graph.get_adjacent_vertices(vertex)
+                .keys()
+                .cloned()
+                .collect();
+            
+            for u in neighbors {
+                if assigned[u] {
+                    continue;
+                }
+                
+                let edge_weight = original_graph.get_edge_weight(vertex, u);
+                
+                if edge_weight > 0 {
+                    // Positive edge: increment overlapping intervals
+                    for j in 0..num_intervals {
+                        let interval_j = &interval_structure.intervals[j];
+                        if intervals_overlap(interval_i, interval_j) {
+                            edge_weights[j][u] += 1;
+                            let new_weight = edge_weights[j][u];
+                            
+                            queue.push(DynamicEdge {
+                                a: u,
+                                b: j,
+                                edition: 1,
+                                weight: new_weight,
+                            });
+                        }
+                    }
+                } else if edge_weight < 0 {
+                    // Negative edge: increment non-overlapping intervals
+                    for j in 0..num_intervals {
+                        let interval_j = &interval_structure.intervals[j];
+                        if !intervals_overlap(interval_i, interval_j) {
+                            edge_weights[j][u] += 1;
+                            let new_weight = edge_weights[j][u];
+                            
+                            queue.push(DynamicEdge {
+                                a: u,
+                                b: j,
+                                edition: 1,
+                                weight: new_weight,
+                            });
+                        }
+                    }
+                }
+            }
+            
+            break; // Move to next vertex after assignment
+        }
+    }
+    
+    node_labels
+}
+
+
 /// Compute the number of violations based on node labels and the signed graph
 ///
 /// A violation occurs when:
@@ -262,7 +368,7 @@ fn intervals_overlap(interval1: &Interval, interval2: &Interval) -> bool {
 }
 
 /// Compute the number of violations for a specific mapping of clusters to intervals
-fn compute_interval_violations(
+pub fn compute_interval_violations(
     edges: &Vec<SignedEdge>,
     node_labels: &[usize],
     interval_structure: &IntervalStructure,
