@@ -103,6 +103,24 @@ fn main() {
         );
         
         println!("Interval violations: {}", violation_count);
+
+        let mut result = serde_json::Map::new();
+
+        // Remap from internal indices back to original node IDs
+        let mut reverse_vertex_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for (&orig_id, &new_id) in &vertex_map {
+            reverse_vertex_map.insert(new_id, orig_id);
+        }
+        
+        for (internal_id, &cluster) in interval_labels.iter().enumerate() {
+            let node_id = reverse_vertex_map.get(&internal_id).unwrap_or(&internal_id);
+            result.insert(node_id.to_string(), json!(cluster));
+        }
+
+        let json_output = serde_json::to_string_pretty(&result).expect("Failed to serialize JSON");
+        let mut file = File::create(output_filename).expect("Failed to create output file");
+        file.write_all(json_output.as_bytes()).expect("Failed to write to file");
+
     } 
     else if algorithm == "gaec" {
         let start_time = Instant::now();
