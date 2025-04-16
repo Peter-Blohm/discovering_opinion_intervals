@@ -26,7 +26,7 @@ pub fn greedy_additive_edge_contraction(
             a: a_sorted,
             b: b_sorted,
             edition: *edition,
-            weight: edge.weight,
+            weight: edge.weight as f32,
         });
     }
 
@@ -39,8 +39,8 @@ pub fn greedy_additive_edge_contraction(
             continue;
         }
 
-        if (target_clusters > 0 && current_clusters <= target_clusters && edge.weight < 0)
-            || (target_clusters == 0 && edge.weight <= 0)
+        if (target_clusters > 0 && current_clusters <= target_clusters && edge.weight < 0.0)
+            || (target_clusters == 0 && edge.weight <= 0.0)
         {
             break;
         }
@@ -86,7 +86,7 @@ pub fn greedy_additive_edge_contraction(
                 a,
                 b,
                 edition: *edition,
-                weight: new_weight,
+                weight: new_weight as f32,
             });
         }
 
@@ -117,24 +117,29 @@ pub fn greedy_absolute_interval_contraction(
     let group_size = (num_vertices + num_groups - 1) / num_groups; // Ceil
     
     // Create a num_intervals x num_vertices matrix for edge editions
-    let mut edge_weights = vec![vec![0; num_vertices]; num_intervals];
+    let mut edge_weights: Vec<Vec<f32>> = vec![vec![0.0; num_vertices]; num_intervals];
 
     let mut group_queues = Vec::with_capacity(num_groups + 1); // Each group gets a queue for runs 2+
     for _ in 0..=num_groups {
         group_queues.push(BinaryHeap::new());
     }
     
+    let mut rng: rand::prelude::ThreadRng = rand::rng();
     
     // Initialize queue with all vertex-interval pairs
     for vertex in 0..num_vertices {
         for interval_idx in 0..num_intervals {
-            edge_weights[interval_idx][vertex] = 0; 
+
+            // A random float between 0 and 0.9
+            let random_weight = rng.random_range(0.0..0.9);
+
+            edge_weights[interval_idx][vertex] = random_weight; 
 
             group_queues[0].push(DynamicEdge {
                 a: vertex,
                 b: interval_idx,
                 edition: 1,
-                weight: 0,
+                weight: random_weight,
             });
         }
     }
@@ -183,7 +188,7 @@ pub fn greedy_absolute_interval_contraction(
                     for j in 0..num_intervals {
                         let interval_j = &interval_structure.intervals[j];
                         if intervals_overlap(interval_i, interval_j) {
-                            edge_weights[j][u] += 1;
+                            edge_weights[j][u] += 1.0;
                             let new_weight = edge_weights[j][u];
 
                             group_queues[assigned[u]].push(DynamicEdge {
@@ -199,7 +204,7 @@ pub fn greedy_absolute_interval_contraction(
                     for j in 0..num_intervals {
                         let interval_j = &interval_structure.intervals[j];
                         if !intervals_overlap(interval_i, interval_j) {
-                            edge_weights[j][u] += 1;
+                            edge_weights[j][u] += 1.0;
                             let new_weight = edge_weights[j][u];
                             
                             group_queues[assigned[u]].push(DynamicEdge {
@@ -219,7 +224,9 @@ pub fn greedy_absolute_interval_contraction(
                 for v in 0..num_vertices {
                     if assigned[v] == prev_group {
                         for interval_idx in 0..num_intervals {
-                            edge_weights[interval_idx][v] = 0;
+                            let random_weight = rng.random_range(0.0..0.9);
+
+                            edge_weights[interval_idx][v] = random_weight;
                         }
                     }
                 }
@@ -240,7 +247,7 @@ pub fn greedy_absolute_interval_contraction(
                     a: vertex,
                     b: interval_idx,
                     edition: 1,
-                    weight: 0,
+                    weight: edge_weights[interval_idx][vertex],
                 });
             }
         }
@@ -284,7 +291,7 @@ pub fn greedy_absolute_interval_contraction(
                             for j in 0..num_intervals {
                                 let interval_j = &interval_structure.intervals[j];
                                 if intervals_overlap(interval_i, interval_j) {
-                                    edge_weights[j][u] += 1;
+                                    edge_weights[j][u] += 1.0;
                                     let new_weight = edge_weights[j][u];
         
                                     if assigned[u] == 0 {
@@ -310,7 +317,7 @@ pub fn greedy_absolute_interval_contraction(
                             for j in 0..num_intervals {
                                 let interval_j = &interval_structure.intervals[j];
                                 if !intervals_overlap(interval_i, interval_j) {
-                                    edge_weights[j][u] += 1;
+                                    edge_weights[j][u] += 1.0;
                                     let new_weight = edge_weights[j][u];
                                     
                                     if assigned[u] == 0 {
@@ -341,12 +348,29 @@ pub fn greedy_absolute_interval_contraction(
             for v in 0..num_vertices {
                 if assigned[v] == group_idx {
                     for interval_idx in 0..num_intervals {
-                        edge_weights[interval_idx][v] = 0;
+                        let random_weight = rng.random_range(0.0..0.9);
+
+                        edge_weights[interval_idx][v] = random_weight;
                     }
                 }
             }   
             group_queues[group_idx].clear();
         }
+
+        let mut cluster_to_interval_map = std::collections::HashMap::new();
+        for i in 0..num_intervals {
+            cluster_to_interval_map.insert(i, i);
+        }
+
+        // Use the imported function to compute violations
+        let violation_count = compute_interval_violations(
+            &edges, 
+            &node_labels, 
+            &interval_structure,
+            &cluster_to_interval_map
+        );
+        
+        println!("Interval violations: {}", violation_count);
     }
 
     node_labels

@@ -78,23 +78,31 @@ impl DynamicGraph {
 /// This type implements `Ord` and `PartialOrd` to allow edges to be 
 /// prioritized in a max-heap (via `BinaryHeap`), where edges with 
 /// higher weights are processed first.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct DynamicEdge {
     pub a: usize,
     pub b: usize,
     pub edition: usize,
-    pub weight: i32,
+    pub weight: f32,
 }
 
-impl Ord for DynamicEdge {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.weight.cmp(&other.weight)
-    }
+impl Eq for DynamicEdge {
+    // Since DynamicEdge already implements PartialEq, and the weights are 
+    // compared using floating-point values which are handled in the Ord and 
+    // PartialOrd implementations, we can just delegate to the default 
+    // behavior for Eq.
+    fn assert_receiver_is_total_eq(&self) {}
 }
 
 impl PartialOrd for DynamicEdge {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+        self.weight.partial_cmp(&other.weight)
+    }
+}
+
+impl Ord for DynamicEdge {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.weight.partial_cmp(&other.weight).unwrap_or(Ordering::Equal)
     }
 }
 
