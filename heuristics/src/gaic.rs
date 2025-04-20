@@ -183,12 +183,14 @@ pub fn greedy_absolute_interval_contraction(
     );
     let mut best_assigment = assigned.clone();
     let mut best_agreement = agreement.clone();
+    let mut last_improvement: usize = 0;
+    let mut epoch_solution: usize= 0;
     for _epoch in 1..num_runs {
         // 1) build & shuffle the full index list
         let mut indices: Vec<usize> = (0..num_vertices).collect();
         indices.shuffle(&mut rng());
         // println!("Test");
-        let chunk_size = (num_vertices + num_batches - 1) / num_batches;
+        let chunk_size = (num_vertices + num_batches - 1) / if {last_improvement < 500} {num_batches} else {last_improvement=0;epoch_solution=0;println!("reset");1};
 
         // 3) slice into at most `num_batches` chunks and call `assign`
         for chunk in indices.chunks(chunk_size).take(num_batches) {
@@ -242,18 +244,26 @@ pub fn greedy_absolute_interval_contraction(
                 &mut priority_vertices,
                 &adj_graph,
             );
+            
             if agreement + partial_agreement - counter > best_agreement {
                 best_assigment = assigned2.clone();
                 best_agreement =  agreement + partial_agreement - counter;
+                // last_improvement = 0;
             }
             assigned = assigned2;
             agreement = agreement + partial_agreement - counter;
+            if agreement > epoch_solution {
+                epoch_solution = agreement;
+                last_improvement = 0;
+            }
         }
+        last_improvement+=1;
         println!(
-            "Agreement: {},{},{}",
-            edges.len(),
-            best_agreement,
-            edges.len() - best_agreement
+            "Agreement: {},{},{},{}",
+            edges.len()-agreement,
+            edges.len()-epoch_solution,
+            edges.len()-best_agreement,
+            last_improvement
         );
     }
     // println!("{:?}", assigned);

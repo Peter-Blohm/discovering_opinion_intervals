@@ -37,7 +37,7 @@ fn main() {
         
         let start_time = Instant::now();
         // let node_labels = greedy_absolute_interval_contraction(signed_graph.num_vertices, &signed_graph.edges, &interval_structure, 100, runs);
-        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 10, runs);
+        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 20, runs);
         let elapsed = start_time.elapsed();
         println!("Running time: {:.2?}", elapsed);
 
