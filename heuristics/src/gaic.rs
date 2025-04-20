@@ -4,20 +4,21 @@ use rand::prelude::SliceRandom;
 use rand::{rng, RngCore};
 use smallvec::SmallVec;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::time::Instant;
 
 #[derive(Clone)]
 pub struct SignedNeighbourhood {
     //adjacency lists
-    pub positive_neighbors: Vec<usize>,
-    pub negative_neighbors: Vec<usize>,
+    pub positive_neighbors: HashSet<usize>,
+    pub negative_neighbors: HashSet<usize>,
 }
 
 impl SignedNeighbourhood {
     pub fn new() -> Self {
         SignedNeighbourhood {
-            positive_neighbors: Vec::new(),
-            negative_neighbors: Vec::new(),
+            positive_neighbors: HashSet::new(),
+            negative_neighbors: HashSet::new(),
         }
     }
 }
@@ -151,11 +152,11 @@ pub fn greedy_absolute_interval_contraction(
         .collect();
     for edge in edges {
         if edge.weight == 1 {
-            adj_graph[edge.source].positive_neighbors.push(edge.target);
-            adj_graph[edge.target].positive_neighbors.push(edge.source);
+            adj_graph[edge.source].positive_neighbors.insert(edge.target);
+            adj_graph[edge.target].positive_neighbors.insert(edge.source);
         } else {
-            adj_graph[edge.source].negative_neighbors.push(edge.target);
-            adj_graph[edge.target].negative_neighbors.push(edge.source);
+            adj_graph[edge.source].negative_neighbors.insert(edge.target);
+            adj_graph[edge.target].negative_neighbors.insert(edge.source);
         }
     }
     // no longer mutable
@@ -188,12 +189,14 @@ pub fn greedy_absolute_interval_contraction(
     for _epoch in 1..num_runs {
         // 1) build & shuffle the full index list
         let mut indices: Vec<usize> = (0..num_vertices).collect();
-        indices.shuffle(&mut rng());
+        if _epoch > 1{
+            indices.shuffle(&mut rng());
+        }
         // println!("Test");
-        let chunk_size = (num_vertices + num_batches - 1) / if {last_improvement < 500} {num_batches} else {last_improvement=0;epoch_solution=0;println!("reset");1};
+        let chunk_size = (num_vertices + num_batches+_epoch*2 -1 ) / if {last_improvement < 500} {num_batches+_epoch*2} else {last_improvement=0;epoch_solution=0;println!("reset");1};
 
         // 3) slice into at most `num_batches` chunks and call `assign`
-        for chunk in indices.chunks(chunk_size).take(num_batches) {
+        for chunk in indices.chunks(chunk_size).take(num_batches+_epoch*2) {
             //new priorities
             let mut perm: Vec<usize> = (1..=chunk.len()).collect();
             perm.shuffle(&mut rng());
@@ -244,7 +247,7 @@ pub fn greedy_absolute_interval_contraction(
                 &mut priority_vertices,
                 &adj_graph,
             );
-            
+
             if agreement + partial_agreement - counter > best_agreement {
                 best_assigment = assigned2.clone();
                 best_agreement =  agreement + partial_agreement - counter;

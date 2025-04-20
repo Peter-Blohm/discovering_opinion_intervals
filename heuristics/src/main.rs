@@ -11,6 +11,7 @@ mod gaic;
 use data_types::{SignedGraph, IntervalStructure};
 use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search, brute_force_interval_structure, compute_interval_violations};
 use gaic::{greedy_absolute_interval_contraction};
+use crate::algorithms::compute_satisfied_bad_cycles;
 use crate::data_types::UsefulSignedGraph;
 // TODO: Handle case where graph is not connected and few clusters are desired
 
@@ -59,7 +60,13 @@ fn main() {
         );
         
         println!("Interval violations: {}", violation_count);
-
+        let triangles = compute_satisfied_bad_cycles(
+            &signed_graph.edges,
+            &node_labels,
+            &interval_structure,
+            3
+        );
+        println!("Triangle inequality violations: {} out of {}", triangles, &signed_graph.edges.len());
         let mut result = serde_json::Map::new();
         
         for (internal_id, &cluster) in node_labels.iter().enumerate() {

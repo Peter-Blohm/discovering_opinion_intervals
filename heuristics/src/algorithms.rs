@@ -3,6 +3,7 @@ use std::time::Instant;
 use rand::Rng;
 
 use crate::data_types::{DynamicEdge, DynamicGraph, Partition, Interval, IntervalStructure, SignedEdge};
+use crate::gaic::SignedNeighbourhood;
 
 pub fn greedy_additive_edge_contraction(
     num_vertices: usize,
@@ -549,7 +550,7 @@ pub fn compute_interval_violations(
     for edge in edges {
         let source_cluster = node_labels[edge.source];
         let target_cluster = node_labels[edge.target];
-        
+
         // For edges within the same cluster
         if source_cluster == target_cluster {
             // For negative edges within the same cluster, it's always a violation
@@ -559,15 +560,15 @@ pub fn compute_interval_violations(
             }
             continue;
         }
-        
+
         let source_interval_idx = *cluster_to_interval_map.get(&source_cluster).unwrap_or(&0);
         let target_interval_idx = *cluster_to_interval_map.get(&target_cluster).unwrap_or(&0);
-        
+
         let source_interval = &interval_structure.intervals[source_interval_idx];
         let target_interval = &interval_structure.intervals[target_interval_idx];
-        
+
         let intervals_overlap = intervals_overlap(source_interval, target_interval);
-        
+
         // Violation if:
         // - Positive edge and intervals don't overlap
         // - Negative edge and intervals overlap
@@ -578,6 +579,59 @@ pub fn compute_interval_violations(
 
     violations
 }
+
+
+pub fn compute_satisfied_bad_cycles(
+    edges: &Vec<SignedEdge>,
+    node_labels: &[usize],
+    interval_structure: &IntervalStructure,
+    maxlength:usize
+) -> usize {
+    let mut triangles: HashMap<(usize,usize,usize),usize> = HashMap::new();
+    let mut triangle_count: usize = 0;
+    let mut adj_graph: Vec<SignedNeighbourhood> = (1..=node_labels.len())
+        .into_iter()
+        .map(|_| SignedNeighbourhood::new())
+        .collect();
+
+    for edge in edges {
+        if edge.weight == 1 {
+            adj_graph[edge.source].positive_neighbors.insert(edge.target);
+            adj_graph[edge.target].positive_neighbors.insert(edge.source);
+        } else {
+            adj_graph[edge.source].negative_neighbors.insert(edge.target);
+            adj_graph[edge.target].negative_neighbors.insert(edge.source);
+        }
+    }
+    let adj_graph = adj_graph;
+    for edge in edges {
+        let source_cluster = node_labels[edge.source];
+        let target_cluster = node_labels[edge.target];
+        let (source_cluster, target_cluster) =  if source_cluster < target_cluster { (source_cluster, target_cluster)} else { (target_cluster, source_cluster)};
+        if (edge.weight > 0) || (source_cluster == target_cluster) {
+            continue
+        }
+
+        let intersect = adj_graph[edge.source].positive_neighbors
+            .intersection(&adj_graph[edge.target].positive_neighbors);
+
+        for &neighbor in intersect {
+            let neighbor_cluster = node_labels[neighbor];
+            if !interval_structure.intervals_overlap(source_cluster, neighbor_cluster) ||
+                !interval_structure.intervals_overlap(target_cluster, neighbor_cluster) ||
+                interval_structure.intervals_overlap(source_cluster, target_cluster) {
+                continue
+            }
+            triangles.insert((source_cluster, node_labels[neighbor], target_cluster),
+                             *triangles.get(&(source_cluster, node_labels[neighbor], target_cluster)).unwrap_or(&0) + 1);
+            triangle_count += 1;
+        }
+    }
+    println!("triangles: {:?}", triangles);
+    triangle_count
+}
+
+
 
 /// Generate all permutations recursively
 fn generate_permutations(
