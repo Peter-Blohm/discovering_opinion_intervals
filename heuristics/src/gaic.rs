@@ -1,7 +1,7 @@
 use crate::data_types::{IntervalStructure, UsefulSignedGraph};
 use priority_queue::PriorityQueue;
 use rand::prelude::SliceRandom;
-use rand::rng;
+use rand::{rng, RngCore};
 use smallvec::SmallVec;
 use std::cmp::Ordering;
 use std::time::Instant;
@@ -35,7 +35,6 @@ pub struct PriorityVertex {
 impl PriorityVertex {
     pub fn new(priority: usize, k: usize) -> Self {
         let cluster_affinities = vec![0; k];
-        //TODO randomness in favorite cluster might be nice
         let mut perm: Vec<usize> = (1..=k).collect();
         perm.shuffle(&mut rng());
         PriorityVertex {
@@ -86,14 +85,13 @@ impl PriorityVertex {
         false
     }
     pub fn update_favorites(&mut self) {
-        let mut best_idx = 0;
-        let mut best_aff = self.cluster_affinities[0];
-        let mut best_pri = self.cluster_priorities[0];
+        let mut best_idx = self.favorite_cluster;
+        let mut best_aff = self.cluster_affinities[self.favorite_cluster];
+        let mut best_pri = self.cluster_priorities[self.favorite_cluster];
 
-        for i in 1..self.cluster_affinities.len() {
+        for i in 0..self.cluster_affinities.len() {
             let a = self.cluster_affinities[i];
             let p = self.cluster_priorities[i];
-            // assuming you want to max by (affinity, then priority)
             if (a > best_aff) || (a == best_aff && p > best_pri) {
                 best_aff = a;
                 best_pri = p;
@@ -183,6 +181,8 @@ pub fn greedy_absolute_interval_contraction(
         agreement,
         edges.len() - agreement
     );
+    let mut best_assigment = assigned.clone();
+    let mut best_agreement = agreement.clone();
     for _epoch in 1..num_runs {
         // 1) build & shuffle the full index list
         let mut indices: Vec<usize> = (0..num_vertices).collect();
@@ -242,18 +242,22 @@ pub fn greedy_absolute_interval_contraction(
                 &mut priority_vertices,
                 &adj_graph,
             );
+            if agreement + partial_agreement - counter > best_agreement {
+                best_assigment = assigned2.clone();
+                best_agreement =  agreement + partial_agreement - counter;
+            }
             assigned = assigned2;
             agreement = agreement + partial_agreement - counter;
         }
         println!(
             "Agreement: {},{},{}",
             edges.len(),
-            agreement,
-            edges.len() - agreement
+            best_agreement,
+            edges.len() - best_agreement
         );
     }
     // println!("{:?}", assigned);
-    return assigned;
+    return best_assigment;
 }
 
 fn assign(
