@@ -14,6 +14,44 @@ pub struct SignedGraph {
     pub edges: Vec<SignedEdge>,
 }
 
+
+#[derive(Deserialize, Debug)]
+pub struct UsefulSignedGraph {
+    pub num_vertices: usize,
+    pub edges: Vec<SignedEdge>,
+    pub inverse_map: HashMap<usize, usize>,
+}
+
+impl crate::UsefulSignedGraph {
+    pub fn new(graph: &SignedGraph) -> crate::UsefulSignedGraph {
+        let vertices: std::collections::HashSet<usize> = graph.edges.iter()
+            .flat_map(|edge| [edge.source, edge.target])
+            .collect();
+        let num_vertices = vertices.len();
+        let mut vertex_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        let mut inverse_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for (new_id, &old_id) in vertices.iter().enumerate() {
+            vertex_map.insert(old_id, new_id);
+            inverse_map.insert(new_id, old_id);
+        }
+        let mut edges = Vec::new();
+        for edge in &graph.edges {
+            let new_a = *vertex_map.get(&edge.source).unwrap();
+            let new_b = *vertex_map.get(&edge.target).unwrap();
+            edges.push(SignedEdge { source: new_a, target: new_b, weight: edge.weight });
+        }
+        crate::UsefulSignedGraph { num_vertices, edges, inverse_map }
+    }
+
+    pub fn vertex_id(&self, normalized_id: usize) -> usize {
+        //TODO sketchy
+        *self.inverse_map.get(&normalized_id).unwrap_or_else(|| panic!("Vertex {} not found", normalized_id))
+    }
+
+
+
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Interval {
     pub start: f32,
@@ -25,7 +63,17 @@ pub struct IntervalStructure {
     pub intervals: Vec<Interval>,
 }
 
+impl IntervalStructure {
+    pub(crate) fn intervals_overlap(&self, interval_index1: usize, interval_index2:usize) -> bool {
+        
+        let in1 = &self.intervals[interval_index1];
+        let in2 = &self.intervals[interval_index2];
+        (in2.start <= in1.end) && (in1.start <= in2.end)
+    }
+}
+
 pub struct DynamicGraph {
+    //adjacency lists
     pub vertices: Vec<HashMap<usize, i32>>,
 }
 
@@ -60,6 +108,9 @@ impl DynamicGraph {
         *self.vertices[b].entry(a).or_insert(0) += w;
     }
 }
+
+// pub struct
+
 
 /// Represents an edge in the dynamic graph used specifically for the 
 /// Greedy Additive Edge Contraction (GAEC) algorithm. This structure

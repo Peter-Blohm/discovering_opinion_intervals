@@ -6,13 +6,123 @@ use serde_json::json;
 
 mod data_types;
 mod algorithms;
+mod gaic;
 
-use data_types::{SignedGraph, IntervalStructure, SignedEdge};
-use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search, brute_force_interval_structure, greedy_absolute_interval_contraction, compute_interval_violations};
-
+use data_types::{SignedGraph, IntervalStructure};
+use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search, brute_force_interval_structure, compute_interval_violations};
+use gaic::{greedy_absolute_interval_contraction};
+use crate::data_types::UsefulSignedGraph;
 // TODO: Handle case where graph is not connected and few clusters are desired
 
 fn main() {
+    //parse cmd args
+    let (graph,
+        interval_structure,
+        output_filename,
+        algorithm,
+        run_cc_local_search,
+        runs) = parse_args();
+
+
+    let signed_graph = UsefulSignedGraph::new(&graph);
+    let num_clusters = interval_structure.intervals.len();
+    println!("Target clusters from interval structure: {}", num_clusters);
+
+    // let f: fn()
+    // TODO: switch case for function call
+
+    if algorithm == "gaic" {
+
+        println!("GAIC runs: {}", runs);
+        
+        let start_time = Instant::now();
+        // let node_labels = greedy_absolute_interval_contraction(signed_graph.num_vertices, &signed_graph.edges, &interval_structure, 100, runs);
+        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 100, 100);
+        let elapsed = start_time.elapsed();
+        println!("Running time: {:.2?}", elapsed);
+
+        // Count interval violations
+        println!("Counting violations for interval structure assignment...");
+
+        // Create a dummy cluster to interval map (1:1 mapping)
+        let mut cluster_to_interval_map = std::collections::HashMap::new();
+        for i in 0..num_clusters {
+            cluster_to_interval_map.insert(i, i);
+        }
+
+        // Use the imported function to compute violations
+        let violation_count = compute_interval_violations(
+            &signed_graph.edges,
+            &node_labels,
+            &interval_structure,
+            &cluster_to_interval_map
+        );
+        
+        println!("Interval violations: {}", violation_count);
+
+        let mut result = serde_json::Map::new();
+        
+        for (internal_id, &cluster) in node_labels.iter().enumerate() {
+            let node_id = signed_graph.vertex_id(internal_id);
+            result.insert(node_id.to_string(), json!(cluster));
+        }
+        let json_output = serde_json::to_string_pretty(&result).expect("Failed to serialize JSON");
+        let mut file = File::create(output_filename).expect("Failed to create output file");
+        file.write_all(json_output.as_bytes()).expect("Failed to write to file");
+
+    } 
+    else if algorithm == "gaec" {
+        let start_time = Instant::now();
+
+        // GAEC
+        let node_labels = greedy_additive_edge_contraction(signed_graph.num_vertices, &signed_graph.edges, num_clusters);
+
+        // Postprocessing
+        let elapsed = start_time.elapsed();
+        println!("Running time: {:.2?}", elapsed);
+
+        let mut result = serde_json::Map::new();
+
+        for (internal_id, &cluster) in node_labels.iter().enumerate() {
+            let node_id = signed_graph.vertex_id(internal_id);
+            result.insert(node_id.to_string(), json!(cluster));
+        }
+        let json_output = serde_json::to_string_pretty(&result).expect("Failed to serialize JSON");
+        let mut file = File::create(output_filename).expect("Failed to create output file");
+        file.write_all(json_output.as_bytes()).expect("Failed to write to file");
+
+        // Count violations
+        let violations = cc_compute_violations(&signed_graph.edges, &node_labels);
+        println!("Violations: {}", violations);
+
+        // Find set of unique clusters
+        let mut unique_clusters: Vec<usize> = node_labels.iter().cloned().collect();
+        unique_clusters.sort();
+        unique_clusters.dedup();
+        
+        println!("Found {} unique clusters", unique_clusters.len());
+
+        // Brute force interval structure assignment
+        let (_, interval_violations) = brute_force_interval_structure(&signed_graph.edges, &node_labels, &interval_structure);
+        println!("Interval violations: {}", interval_violations);
+        
+        if run_cc_local_search {
+            // Local search
+            let local_search_node_labels = cc_local_search(&signed_graph.edges, &node_labels);
+        
+            // Count violations after local search
+            let local_search_violations = cc_compute_violations(&signed_graph.edges, &local_search_node_labels);
+            println!("Local search violations: {}", local_search_violations);
+        }
+    }
+    else {
+        println!("Unknown algorithm: {}. Use 'gaec' or 'gaic'.", algorithm);
+        std::process::exit(1);
+    }
+}
+
+
+fn parse_args() -> (SignedGraph, IntervalStructure, String, String, bool, usize) {
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
         println!("Usage: {} <graph_file> <interval_file> <output_file> <algorithm> [opts]", args[0]);
@@ -25,156 +135,23 @@ fn main() {
     let graph_json_data = fs::read_to_string(graph_filename)
         .unwrap_or_else(|_| panic!("Failed to read file: {}", graph_filename.display()));
 
-    let graph: SignedGraph = serde_json::from_str(&graph_json_data)
-        .unwrap_or_else(|_| panic!("Failed to parse JSON from {}", graph_filename.display()));
-
     let interval_filename = Path::new(&args[2]);
     let interval_json_data = fs::read_to_string(interval_filename)
         .unwrap_or_else(|_| panic!("Failed to read file: {}", interval_filename.display()));
+    let graph: SignedGraph = serde_json::from_str(&graph_json_data)
+        .unwrap_or_else(|_| panic!("Failed to parse JSON from {}", graph_filename.display()));
 
     let interval_structure: IntervalStructure = serde_json::from_str(&interval_json_data)
         .unwrap_or_else(|_| panic!("Failed to parse interval JSON from {}", interval_filename.display()));
 
-    let output_filename = &args[3];
+    let output_filename = args[3].clone();
     let algorithm = args[4].to_lowercase();
-    
+
     let run_cc_local_search = false; // Could also be made a command line argument
 
-    let edges: Vec<SignedEdge> = graph.edges.iter()
-        .map(|edge| {
-            let source = edge.source;
-            let target = edge.target;
-            let weight = edge.weight;
-            SignedEdge { source, target, weight }
-        })
-        .collect();
-
-    let vertices: std::collections::HashSet<usize> = edges.iter()
-        .flat_map(|edge| [edge.source, edge.target])
-        .collect();
-    let num_vertices = vertices.len();
-
-    // Remap vertices to a contiguous range
-    let mut vertex_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-    let mut remapped_edges = Vec::new();
-    for (new_id, &old_id) in vertices.iter().enumerate() {
-        vertex_map.insert(old_id, new_id);
-    }
-    for edge in &edges {
-        let new_a = *vertex_map.get(&edge.source).unwrap();
-        let new_b = *vertex_map.get(&edge.target).unwrap();
-        remapped_edges.push(SignedEdge { source: new_a, target: new_b, weight: edge.weight });
-    }
-    let edges = remapped_edges;
-
-    let target_clusters = interval_structure.intervals.len();
-    println!("Target clusters from interval structure: {}", target_clusters);
-
-    if algorithm == "gaic" {
-        // Parse the number of steps from command line args if provided
-        let runs = args.iter().position(|arg| arg == "--runs")
-            .and_then(|pos| args.get(pos + 1))
-            .and_then(|s| s.parse::<usize>().ok())
-            .unwrap_or(5); // Default value if not provided
-        
-        println!("GAIC runs: {}", runs);
-        
-        let start_time = Instant::now();
-        let interval_labels = greedy_absolute_interval_contraction(num_vertices, &edges, &interval_structure, 100, runs);
-        
-        let elapsed = start_time.elapsed();
-        println!("Running time: {:.2?}", elapsed);
-
-        // Count interval violations
-        println!("Counting violations for interval structure assignment...");
-
-        // Create a dummy cluster to interval map (1:1 mapping)
-        let mut cluster_to_interval_map = std::collections::HashMap::new();
-        for i in 0..target_clusters {
-            cluster_to_interval_map.insert(i, i);
-        }
-
-        // Use the imported function to compute violations
-        let violation_count = compute_interval_violations(
-            &edges, 
-            &interval_labels, 
-            &interval_structure,
-            &cluster_to_interval_map
-        );
-        
-        println!("Interval violations: {}", violation_count);
-
-        let mut result = serde_json::Map::new();
-
-        // Remap from internal indices back to original node IDs
-        let mut reverse_vertex_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for (&orig_id, &new_id) in &vertex_map {
-            reverse_vertex_map.insert(new_id, orig_id);
-        }
-        
-        for (internal_id, &cluster) in interval_labels.iter().enumerate() {
-            let node_id = reverse_vertex_map.get(&internal_id).unwrap_or(&internal_id);
-            result.insert(node_id.to_string(), json!(cluster));
-        }
-
-        let json_output = serde_json::to_string_pretty(&result).expect("Failed to serialize JSON");
-        let mut file = File::create(output_filename).expect("Failed to create output file");
-        file.write_all(json_output.as_bytes()).expect("Failed to write to file");
-
-    } 
-    else if algorithm == "gaec" {
-        let start_time = Instant::now();
-
-        // GAEC
-        let node_labels = greedy_additive_edge_contraction(num_vertices, &edges, target_clusters);
-
-        // Postprocessing
-        let elapsed = start_time.elapsed();
-        println!("Running time: {:.2?}", elapsed);
-
-        let mut result = serde_json::Map::new();
-
-        // Remap from internal indices back to original node IDs
-        let mut reverse_vertex_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for (&orig_id, &new_id) in &vertex_map {
-            reverse_vertex_map.insert(new_id, orig_id);
-        }
-        
-        for (internal_id, &cluster) in node_labels.iter().enumerate() {
-            let node_id = reverse_vertex_map.get(&internal_id).unwrap_or(&internal_id);
-            result.insert(node_id.to_string(), json!(cluster));
-        }
-
-        let json_output = serde_json::to_string_pretty(&result).expect("Failed to serialize JSON");
-        let mut file = File::create(output_filename).expect("Failed to create output file");
-        file.write_all(json_output.as_bytes()).expect("Failed to write to file");
-
-        // Count violations
-        let violations = cc_compute_violations(&edges, &node_labels);
-        println!("Violations: {}", violations);
-
-        // Find set of unique clusters
-        let mut unique_clusters: Vec<usize> = node_labels.iter().cloned().collect();
-        unique_clusters.sort();
-        unique_clusters.dedup();
-        
-        println!("Found {} unique clusters", unique_clusters.len());
-
-        // Brute force interval structure assignment
-        let (_, interval_violations) = brute_force_interval_structure(&edges, &node_labels, &interval_structure);
-        println!("Interval violations: {}", interval_violations);
-        
-        if run_cc_local_search {
-            // Local search
-            let local_search_node_labels = cc_local_search(&edges, &node_labels);
-        
-            // Count violations after local search
-            let local_search_violations = cc_compute_violations(&edges, &local_search_node_labels);
-            println!("Local search violations: {}", local_search_violations);
-        }
-    }
-    else {
-        println!("Unknown algorithm: {}. Use 'gaec' or 'gaic'.", algorithm);
-        std::process::exit(1);
-    }
+    let runs = args.iter().position(|arg| arg == "--runs")
+        .and_then(|pos| args.get(pos + 1))
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(5);
+    (graph, interval_structure, output_filename, algorithm, run_cc_local_search, runs)
 }

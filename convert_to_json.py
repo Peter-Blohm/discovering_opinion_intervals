@@ -34,9 +34,9 @@ def write_signed_graph_to_json(signed_graph: SignedGraph, output_file: str):
 
 
 if __name__ == "__main__":
-    data = f"data/soc-sign-bitcoinotc.csv"
+    data = f"data/wiki_L_edges.txt"
 
     G = read_signed_graph(data)
 
-    write_signed_graph_to_json(G, "bitcoin.json")
+    write_signed_graph_to_json(G, "wiki_L.json")
 

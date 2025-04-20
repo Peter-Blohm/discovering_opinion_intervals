@@ -533,7 +533,7 @@ pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<us
 
 
 /// Check if two intervals overlap
-fn intervals_overlap(interval1: &Interval, interval2: &Interval) -> bool {
+pub(crate) fn intervals_overlap(interval1: &Interval, interval2: &Interval) -> bool {
     !(interval1.end <= interval2.start || interval2.end <= interval1.start)
 }
 
