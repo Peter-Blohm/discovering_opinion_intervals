@@ -1,4 +1,4 @@
-use crate::data_types::{IntervalStructure, UsefulSignedGraph};
+use crate::data_types::{IntervalStructure, SignedEdge, UsefulSignedGraph};
 use priority_queue::PriorityQueue;
 use rand::prelude::SliceRandom;
 use rand::{rng, Rng};
@@ -20,6 +20,31 @@ impl SignedNeighbourhood {
             negative_neighbors: HashSet::new(),
         }
     }
+}
+
+pub struct SignedAdjacencyList {
+    pub adj_graph: Vec<SignedNeighbourhood>,
+}
+impl SignedAdjacencyList {
+    pub fn new(edges: &Vec<SignedEdge>, num_vertices:usize) -> Self {
+        let mut adj_graph: Vec<SignedNeighbourhood> = (0..num_vertices)
+            .into_iter()
+            .map(|_| SignedNeighbourhood::new())
+            .collect();
+        for edge in edges {
+            if edge.weight == 1 {
+                adj_graph[edge.source].positive_neighbors.insert(edge.target);
+                adj_graph[edge.target].positive_neighbors.insert(edge.source);
+            } else {
+                adj_graph[edge.source].negative_neighbors.insert(edge.target);
+                adj_graph[edge.target].negative_neighbors.insert(edge.source);
+            }
+        }
+        // no longer mutable
+        SignedAdjacencyList { adj_graph }
+    }
+
+
 }
 
 #[derive(Clone)]
@@ -136,9 +161,9 @@ impl PriorityVertex {
         let mut cumulative_sum = 0.0003;
         let mut cluster = 0;
         for (i, &temp) in temps.iter().enumerate() {
-            
+
             if random_value > cumulative_sum {
-                
+
                 cluster = i;
             }
             cumulative_sum += temp/sum_temp;
@@ -161,21 +186,7 @@ pub fn greedy_absolute_interval_contraction(
     let num_intervals = interval_structure.intervals.len();
 
     
-    let mut adj_graph: Vec<SignedNeighbourhood> = (1..=num_vertices)
-        .into_iter()
-        .map(|_| SignedNeighbourhood::new())
-        .collect();
-    for edge in edges {
-        if edge.weight == 1 {
-            adj_graph[edge.source].positive_neighbors.insert(edge.target);
-            adj_graph[edge.target].positive_neighbors.insert(edge.source);
-        } else {
-            adj_graph[edge.source].negative_neighbors.insert(edge.target);
-            adj_graph[edge.target].negative_neighbors.insert(edge.source);
-        }
-    }
-    // no longer mutable
-    let adj_graph = adj_graph;
+    let adj_graph = SignedAdjacencyList::new(&signed_graph.edges,num_vertices);
 
     let mut perm: Vec<usize> = (0..num_vertices).collect();
     perm.shuffle(&mut rng());
@@ -186,7 +197,7 @@ pub fn greedy_absolute_interval_contraction(
         .collect();
 
     for id in 0..num_vertices {
-        priority_vertices[id].num_neighbors = adj_graph[id].positive_neighbors.len() + adj_graph[id].negative_neighbors.len();
+        priority_vertices[id].num_neighbors = adj_graph.adj_graph[id].positive_neighbors.len() + adj_graph.adj_graph[id].negative_neighbors.len();
     }
     // run ////////////////////////////////////
     let mut assigned = vec![num_intervals; num_vertices];
@@ -197,7 +208,7 @@ pub fn greedy_absolute_interval_contraction(
         interval_structure,
         num_intervals,
         &mut priority_vertices,
-        &adj_graph,
+        &adj_graph.adj_graph,
         0.05
     );
 
@@ -225,13 +236,12 @@ pub fn greedy_absolute_interval_contraction(
 
         // 3) slice into at most `num_batches` chunks and call `assign`
         for chunk in indices.chunks(chunk_size).take(num_batches) { // +_epoch*2
-            
             //new priorities
             let lost_agreement = unassign(chunk, &mut assigned, interval_structure, 
-                                          num_intervals, &mut priority_vertices, &adj_graph);
+                                          num_intervals, &mut priority_vertices, &adj_graph.adj_graph);
             
             let won_agreement =    assign(chunk, &mut assigned, interval_structure, 
-                                          num_intervals, &mut priority_vertices, &adj_graph, temp);
+                                          num_intervals, &mut priority_vertices, &adj_graph.adj_graph, temp);
 
             //overwrite the best if there was an improvement
             if agreement + won_agreement - lost_agreement > best_agreement {

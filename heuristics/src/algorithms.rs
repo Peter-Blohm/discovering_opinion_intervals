@@ -3,7 +3,7 @@ use std::time::Instant;
 use rand::Rng;
 
 use crate::data_types::{DynamicEdge, DynamicGraph, Partition, Interval, IntervalStructure, SignedEdge};
-use crate::gaic::SignedNeighbourhood;
+use crate::gaic::{SignedAdjacencyList, SignedNeighbourhood};
 
 pub fn greedy_additive_edge_contraction(
     num_vertices: usize,
@@ -589,24 +589,10 @@ pub fn compute_satisfied_bad_cycles(
 ) -> usize {
     let mut triangles: HashMap<(usize,usize,usize),usize> = HashMap::new();
     let mut triangle_count: usize = 0;
-    let mut adj_graph: Vec<SignedNeighbourhood> = (1..=node_labels.len())
-        .into_iter()
-        .map(|_| SignedNeighbourhood::new())
-        .collect();
-
-    for edge in edges {
-        if edge.weight == 1 {
-            adj_graph[edge.source].positive_neighbors.insert(edge.target);
-            adj_graph[edge.target].positive_neighbors.insert(edge.source);
-        } else {
-            adj_graph[edge.source].negative_neighbors.insert(edge.target);
-            adj_graph[edge.target].negative_neighbors.insert(edge.source);
-        }
-    }
-    let adj_graph = adj_graph;
+    let adj_graph = SignedAdjacencyList::new(edges, node_labels.len());
     let mut simplex_pos_count = 0;
     let mut simplex_neg_count = 0;
-    for vertex in &adj_graph {
+    for vertex in &adj_graph.adj_graph {
         if vertex.negative_neighbors.len() == 0 && vertex.positive_neighbors.len() == 1 {
             simplex_pos_count += 1;
         }
@@ -623,8 +609,8 @@ pub fn compute_satisfied_bad_cycles(
             continue
         }
 
-        let intersect = adj_graph[edge.source].positive_neighbors
-            .intersection(&adj_graph[edge.target].positive_neighbors);
+        let intersect = adj_graph.adj_graph[edge.source].positive_neighbors
+            .intersection(&adj_graph.adj_graph[edge.target].positive_neighbors);
 
         for &neighbor in intersect {
             let neighbor_cluster = node_labels[neighbor];
