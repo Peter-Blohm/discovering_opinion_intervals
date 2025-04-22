@@ -1,5 +1,5 @@
 import networkx as nx
-
+import os
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
 
 def _find_pos_vertices(graph: SignedGraph):
@@ -169,12 +169,62 @@ def kernelize_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
         kernel_graphs.extend(kernelize_graph(g))
     return kernel_graphs
 
-if __name__ == "__main__": 
-    file = "data/all8graphs/graph_6.txt"
+def _find_singly_pos_connected_vertices(graph: SignedGraph):
+    """
+    Find vertices with exactly one positive neighbor and no negative neighbors.
+    :param graph: the input SignedGraph
+    :return: list of node IDs
+    """
+    candidates = []
+
+    for node, plus_degree in graph.G_plus.degree():
+        if plus_degree == 1:  # Exactly one positive neighbor
+            minus_degree = graph.G_minus.degree(node) if node in graph.G_minus else 0
+            if minus_degree == 0:  # No negative neighbors
+                candidates.append(node)
+    return candidates
+
+
+def kernelize_for_fixed_intervals(graph: SignedGraph) -> SignedGraph:
+    """
+    Repeatedly removes vertices that have exactly one positive neighbor and no negative neighbors.
+    
+    :param graph: the input SignedGraph
+    :return: kernelized SignedGraph
+    """
+    result_graph = graph.copy()
+    
+    while True:
+        to_remove = _find_singly_pos_connected_vertices(result_graph)
+        if not to_remove:
+            break
+        result_graph.remove_nodes_from(to_remove)
+    
+    return result_graph
+
+def save_graph_to_file(edges, name, output_dir):
+    """
+    Saves a single valid graph to a text file in the specified format.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.join(output_dir, f"{name}.txt")
+    with open(filename, "w") as f:
+        f.write("# FromNodeId\tToNodeId\tSign\n")
+        for u, v, sign in edges:
+            f.write(f"{u}\t{v}\t{sign}\n")
+    return filename
+
+if __name__ == "__main__":
+    file = "data/wiki_L.txt"
 
     graph = read_signed_graph(file)
 
-    kernel_graphs = kernelize_graph(graph, safe=False)
+    kernel_graph = kernelize_for_fixed_intervals(graph)
 
-    print(len(kernel_graphs))
-    print([g.number_of_nodes() for g in kernel_graphs])
+    edges = [(u, v, 1) for u, v in kernel_graph.G_plus.edges()] + \
+            [(u, v, -1) for u, v in kernel_graph.G_minus.edges()]
+    
+    name = os.path.splitext(os.path.basename(file))[0] + "_kernel"
+    output_dir = "data"
+
+    save_graph_to_file(edges, name, output_dir)
