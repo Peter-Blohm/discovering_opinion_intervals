@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::cmp::Ordering;
+use std::num;
 
 #[derive(Deserialize, Debug)]
 pub struct SignedEdge {
@@ -22,14 +23,14 @@ pub struct UsefulSignedGraph {
     pub inverse_map: HashMap<usize, usize>,
 }
 
-impl crate::UsefulSignedGraph {
-    pub fn new(graph: &SignedGraph) -> crate::UsefulSignedGraph {
+impl UsefulSignedGraph {
+    pub fn new(graph: &SignedGraph) -> UsefulSignedGraph {
         let vertices: std::collections::HashSet<usize> = graph.edges.iter()
             .flat_map(|edge| [edge.source, edge.target])
             .collect();
         let num_vertices = vertices.len();
-        let mut vertex_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        let mut inverse_map: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        let mut vertex_map: HashMap<usize, usize> = HashMap::new();
+        let mut inverse_map: HashMap<usize, usize> = HashMap::new();
         for (new_id, &old_id) in vertices.iter().enumerate() {
             vertex_map.insert(old_id, new_id);
             inverse_map.insert(new_id, old_id);
@@ -40,7 +41,7 @@ impl crate::UsefulSignedGraph {
             let new_b = *vertex_map.get(&edge.target).unwrap();
             edges.push(SignedEdge { source: new_a, target: new_b, weight: edge.weight });
         }
-        crate::UsefulSignedGraph { num_vertices, edges, inverse_map }
+        UsefulSignedGraph { num_vertices, edges, inverse_map }
     }
 
     pub fn vertex_id(&self, normalized_id: usize) -> usize {
@@ -52,7 +53,7 @@ impl crate::UsefulSignedGraph {
 
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Interval {
     pub start: f32,
     pub end: f32,
@@ -69,6 +70,48 @@ impl IntervalStructure {
         let in1 = &self.intervals[interval_index1];
         let in2 = &self.intervals[interval_index2];
         (in2.start <= in1.end) && (in1.start <= in2.end)
+    }
+
+    pub fn full_structure(k:usize) -> IntervalStructure{
+        let mut intervals:Vec<Interval> = Vec::new();
+        for i in 0..k {
+            for j in 0..k-i {
+                intervals.push(Interval {start: i as f32, end:(i+j+1) as f32 - 0.5})
+            }
+        }
+        IntervalStructure { intervals }
+    }
+    pub fn delete_interval(&mut self, index: usize){
+        let interval = self.intervals[index].clone();
+        self.intervals.swap_remove(index);
+    }
+
+    pub fn deduplicate(&mut self) -> HashMap<usize,usize>{
+
+        let mut interval_lists:Vec<Vec<usize>> = vec![Vec::new();self.intervals.len()];
+
+        for (idxa, interval) in self.intervals.clone().into_iter().enumerate() {
+            interval_lists[idxa] = vec![0;self.intervals.len()];
+            for (idxb,intervbl) in self.intervals.clone().into_iter().enumerate() {
+                if idxb < idxa {
+                    continue
+                }
+                if self.intervals_overlap(idxa,idxb){
+                    interval_lists[idxa][idxb] += 1;
+                }
+            }
+        }
+        let map: HashMap<usize,usize> = HashMap::new();
+        for list in &interval_lists {
+            // map.insert();
+            for ljst in &interval_lists {
+                if list == ljst {
+                    println!("mamma mia!");
+                }
+            }
+        }
+
+        return map;
     }
 }
 
