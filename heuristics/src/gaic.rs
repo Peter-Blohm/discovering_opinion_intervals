@@ -185,64 +185,25 @@ pub fn greedy_absolute_interval_contraction(
 
         // 3) slice into at most `num_batches` chunks and call `assign`
         for chunk in indices.chunks(chunk_size).take(num_batches+_epoch*2) {
+            
             //new priorities
-            let mut perm: Vec<usize> = (1..=chunk.len()).collect();
-            perm.shuffle(&mut rng());
-            let mut updates: SmallVec<usize, 32> = SmallVec::new();
-            let mut counter = 0;
-            for (idx, &vertex_id) in chunk.iter().enumerate() {
-                priority_vertices[vertex_id].priority = perm[idx];
-                let fav = assigned[vertex_id];
-                let agg = priority_vertices[vertex_id].cluster_affinities[fav];
-                counter += agg;
-                priority_vertices[vertex_id].reprioritise();
-                assert!(fav < num_intervals);
-                for cluster in 0..num_intervals {
-                    let neighbors = if interval_structure.intervals_overlap(cluster, fav) {
-                        &adj_graph[vertex_id].positive_neighbors
-                    } else {
-                        &adj_graph[vertex_id].negative_neighbors
-                    };
-                    for &n in neighbors {
-                        if {
-                            let neighbor = &mut priority_vertices[n];
-                            neighbor.decrease_affinity_unsafe(cluster)
-                        } {
-                            // remember vertex for changing queue priority later
-                            updates.push(n);
-                        }
-                    }
-                }
-                // this is the expensive part
-                for n in updates.drain(..) {
-                    priority_vertices[n].update_favorites();
-                }
-                // agreement-=agg;
-                assigned[vertex_id] = num_intervals;
-            }
-            //unassign
+            let lost_agreement = unassign(chunk, &mut assigned, interval_structure, 
+                                          num_intervals, &mut priority_vertices, &adj_graph);
+            
+            let won_agreement =    assign(chunk, &mut assigned, interval_structure, 
+                                          num_intervals, &mut priority_vertices, &adj_graph);
 
-            //reassign
-            let partial_agreement = assign(
-                chunk,
-                &mut assigned,
-                interval_structure,
-                num_intervals,
-                &mut priority_vertices,
-                &adj_graph,
-            );
-
-            if agreement + partial_agreement - counter > best_agreement {
+            //overwrite the best if there was an improvement
+            if agreement + won_agreement - lost_agreement > best_agreement {
                 best_assigment = assigned.clone();
-                best_agreement =  agreement + partial_agreement - counter;
+                best_agreement =  agreement + won_agreement - lost_agreement;
             }
-            agreement = agreement + partial_agreement - counter;
+            agreement = agreement + won_agreement - lost_agreement;
             if agreement > epoch_solution {
                 epoch_solution = agreement;
                 last_improvement = 0;
             }
         }
-        last_improvement+=1;
         println!(
             "Agreement: {},{},{},{}",
             edges.len()-agreement,
@@ -250,9 +211,53 @@ pub fn greedy_absolute_interval_contraction(
             edges.len()-best_agreement,
             last_improvement
         );
+        last_improvement+=1;
     }
     // println!("{:?}", assigned);
     best_assigment
+}
+
+fn unassign(idx: &[usize],
+            assigned: &mut Vec<usize>,
+            interval_structure: &IntervalStructure,
+            num_intervals: usize,
+            priority_vertices: &mut Vec<PriorityVertex>,
+            adj_graph: &Vec<SignedNeighbourhood>) -> usize {
+    let mut perm: Vec<usize> = (1..=idx.len()).collect();
+    perm.shuffle(&mut rng());
+    let mut updates: SmallVec<usize, 32> = SmallVec::new();
+    let mut removed_agreement = 0;
+    for (idx, &vertex_id) in idx.iter().enumerate() {
+        priority_vertices[vertex_id].priority = perm[idx];
+        let fav = assigned[vertex_id];
+        let agg = priority_vertices[vertex_id].cluster_affinities[fav];
+        removed_agreement += agg;
+        priority_vertices[vertex_id].reprioritise();
+        assert!(fav < num_intervals);
+        for cluster in 0..num_intervals {
+            let neighbors = if interval_structure.intervals_overlap(cluster, fav) {
+                &adj_graph[vertex_id].positive_neighbors
+            } else {
+                &adj_graph[vertex_id].negative_neighbors
+            };
+            for &n in neighbors {
+                if {
+                    let neighbor = &mut priority_vertices[n];
+                    neighbor.decrease_affinity_unsafe(cluster)
+                } {
+                    // remember vertex for changing queue priority later
+                    updates.push(n);
+                }
+            }
+        }
+        // this is the expensive part
+        for n in updates.drain(..) {
+            priority_vertices[n].update_favorites();
+        }
+        // agreement-=agg;
+        assigned[vertex_id] = num_intervals;
+    }
+    removed_agreement
 }
 
 fn assign(
