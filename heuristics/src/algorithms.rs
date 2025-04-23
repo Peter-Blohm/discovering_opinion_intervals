@@ -604,6 +604,17 @@ pub fn compute_satisfied_bad_cycles(
         }
     }
     let adj_graph = adj_graph;
+    let mut simplex_pos_count = 0;
+    let mut simplex_neg_count = 0;
+    for vertex in &adj_graph {
+        if vertex.negative_neighbors.len() == 0 && vertex.positive_neighbors.len() == 1 {
+            simplex_pos_count += 1;
+        }
+        if vertex.negative_neighbors.len() == 1 && vertex.positive_neighbors.len() == 0 {
+            simplex_neg_count += 1;
+        }
+    }
+    println!("Simplex neighbors: {}, {}", simplex_pos_count, simplex_neg_count);
     for edge in edges {
         let source_cluster = node_labels[edge.source];
         let target_cluster = node_labels[edge.target];

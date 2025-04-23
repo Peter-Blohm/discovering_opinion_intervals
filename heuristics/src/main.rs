@@ -18,7 +18,7 @@ use crate::data_types::UsefulSignedGraph;
 fn main() {
     //parse cmd args
     let (graph,
-        interval_structure,
+        mut interval_structure,
         output_filename,
         algorithm,
         run_cc_local_search,
@@ -35,12 +35,20 @@ fn main() {
     if algorithm == "gaic" {
 
         println!("GAIC runs: {}", runs);
-        
+
         let start_time = Instant::now();
         // let node_labels = greedy_absolute_interval_contraction(signed_graph.num_vertices, &signed_graph.edges, &interval_structure, 100, runs);
-        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 20, runs);
+        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 100, runs);
         let elapsed = start_time.elapsed();
         println!("Running time: {:.2?}", elapsed);
+        let mut label_count:Vec<usize> = vec![0;interval_structure.intervals.len()];
+        for &label in &node_labels {
+            label_count[label] +=1;
+        }
+        println!("Label count {:?}", label_count);
+        
+       
+
 
         // Count interval violations
         println!("Counting violations for interval structure assignment...");
@@ -58,7 +66,7 @@ fn main() {
             &interval_structure,
             &cluster_to_interval_map
         );
-        
+
         println!("Interval violations: {}", violation_count);
         let triangles = compute_satisfied_bad_cycles(
             &signed_graph.edges,
@@ -68,7 +76,7 @@ fn main() {
         );
         println!("Triangle inequality violations: {} out of {}", triangles, &signed_graph.edges.len());
         let mut result = serde_json::Map::new();
-        
+
         for (internal_id, &cluster) in node_labels.iter().enumerate() {
             let node_id = signed_graph.vertex_id(internal_id);
             result.insert(node_id.to_string(), json!(cluster));
@@ -77,7 +85,52 @@ fn main() {
         let mut file = File::create(output_filename).expect("Failed to create output file");
         file.write_all(json_output.as_bytes()).expect("Failed to write to file");
 
-    } 
+    } else if algorithm == "gaic++" {
+
+        println!("GAIC++ runs: {}", runs);
+
+        let start_time = Instant::now();
+        let mut interval_structure = IntervalStructure::full_structure(4);
+        // let node_labels = greedy_absolute_interval_contraction(signed_graph.num_vertices, &signed_graph.edges, &interval_structure, 100, runs);
+        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 100, 100);
+        let mut label_count:Vec<usize> = vec![0;interval_structure.intervals.len()];
+        for &label in &node_labels {
+            label_count[label] +=1;
+        }
+        println!("Label count {:?}", label_count);
+        let elapsed = start_time.elapsed();
+        println!("Running time: {:.2?}", elapsed);
+
+        let mut min_interval = 0;
+        let mut num_min_interval = label_count[0];
+        for (idx, interval) in label_count.into_iter().enumerate() {
+            if interval < num_min_interval {
+                min_interval = idx;
+                num_min_interval = interval;
+            }
+        }
+        interval_structure.delete_interval(min_interval);
+        let start_time = Instant::now();
+        // let node_labels = greedy_absolute_interval_contraction(signed_graph.num_vertices, &signed_graph.edges, &interval_structure, 100, runs);
+        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 100, 100);
+        let elapsed = start_time.elapsed();
+        println!("Running time: {:.2?}", elapsed);
+        let mut label_count:Vec<usize> = vec![0;interval_structure.intervals.len()];
+        for &label in &node_labels {
+            label_count[label] +=1;
+        }
+        println!("Label count {:?}", label_count);
+        let mut result = serde_json::Map::new();
+
+        for (internal_id, &cluster) in node_labels.iter().enumerate() {
+            let node_id = signed_graph.vertex_id(internal_id);
+            result.insert(node_id.to_string(), json!(cluster));
+        }
+        let json_output = serde_json::to_string_pretty(&result).expect("Failed to serialize JSON");
+        let mut file = File::create(output_filename).expect("Failed to create output file");
+        file.write_all(json_output.as_bytes()).expect("Failed to write to file");
+
+    }
     else if algorithm == "gaec" {
         let start_time = Instant::now();
 

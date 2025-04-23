@@ -1,9 +1,8 @@
 use crate::data_types::{IntervalStructure, UsefulSignedGraph};
 use priority_queue::PriorityQueue;
 use rand::prelude::SliceRandom;
-use rand::{rng, RngCore};
+use rand::rng;
 use smallvec::SmallVec;
-use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::time::Instant;
 
@@ -31,6 +30,7 @@ pub struct PriorityVertex {
     max_affinity: usize,
     priority: usize,
     cluster_priorities: Vec<usize>,
+    pub num_neighbors: usize,
 }
 
 impl PriorityVertex {
@@ -45,6 +45,7 @@ impl PriorityVertex {
             max_affinity: 0,
             priority,
             cluster_priorities: perm,
+            num_neighbors: 0,
         }
     }
 
@@ -96,6 +97,7 @@ impl PriorityVertex {
             if (a > best_aff) || (a == best_aff && p > best_pri) {
                 best_aff = a;
                 best_pri = p;
+                self.runner_up = best_idx;
                 best_idx = i;
             }
         }
@@ -106,24 +108,6 @@ impl PriorityVertex {
 
     pub fn get_sort_priority(&self) -> (usize, usize) {
         (self.max_affinity, self.priority)
-    }
-}
-impl PartialEq for PriorityVertex {
-    fn eq(&self, other: &Self) -> bool {
-        self.max_affinity == other.max_affinity && self.priority == other.priority
-    }
-}
-impl Eq for PriorityVertex {}
-
-impl Ord for PriorityVertex {
-    fn cmp(&self, other: &Self) -> Ordering {
-        (self.max_affinity, self.priority).cmp(&(other.max_affinity, other.priority))
-    }
-}
-
-impl PartialOrd for PriorityVertex {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 
@@ -138,14 +122,7 @@ pub fn greedy_absolute_interval_contraction(
     let edges = &signed_graph.edges;
     let num_intervals = interval_structure.intervals.len();
 
-    let mut perm: Vec<usize> = (1..=num_vertices).collect();
-    perm.shuffle(&mut rng());
-    let start_time = Instant::now();
-    let mut priority_vertices: Vec<PriorityVertex> = perm
-        .into_iter()
-        .map(|priority| PriorityVertex::new(priority, num_intervals))
-        .collect();
-
+    
     let mut adj_graph: Vec<SignedNeighbourhood> = (1..=num_vertices)
         .into_iter()
         .map(|_| SignedNeighbourhood::new())
@@ -162,12 +139,23 @@ pub fn greedy_absolute_interval_contraction(
     // no longer mutable
     let adj_graph = adj_graph;
 
-    // run ////////////////////////////////////
+    let mut perm: Vec<usize> = (0..num_vertices).collect();
+    perm.shuffle(&mut rng());
+    let start_time = Instant::now();
+    let mut priority_vertices: Vec<PriorityVertex> = perm
+        .into_iter()
+        .map(|priority| PriorityVertex::new(priority, num_intervals))
+        .collect();
 
+    for id in 0..num_vertices {
+        priority_vertices[id].num_neighbors = adj_graph[id].positive_neighbors.len() + adj_graph[id].negative_neighbors.len();
+    }
+    // run ////////////////////////////////////
+    let mut assigned = vec![num_intervals; num_vertices];
     println!("One run started");
-    let (mut assigned, mut agreement) = assign(
+    let mut agreement = assign(
         &*(0..num_vertices).collect::<Vec<usize>>(),
-        &vec![num_intervals; num_vertices],
+        &mut assigned,
         interval_structure,
         num_intervals,
         &mut priority_vertices,
@@ -193,74 +181,29 @@ pub fn greedy_absolute_interval_contraction(
             indices.shuffle(&mut rng());
         }
         // println!("Test");
-        let chunk_size = (num_vertices + num_batches+_epoch*2 -1 ) / if {last_improvement < 500} {num_batches+_epoch*2} else {last_improvement=0;epoch_solution=0;println!("reset");1};
+        let chunk_size = (num_vertices + num_batches -1 ) / if last_improvement < 500 {num_batches} else {last_improvement=0;epoch_solution=0;println!("reset");1};
 
         // 3) slice into at most `num_batches` chunks and call `assign`
         for chunk in indices.chunks(chunk_size).take(num_batches+_epoch*2) {
+            
             //new priorities
-            let mut perm: Vec<usize> = (1..=chunk.len()).collect();
-            perm.shuffle(&mut rng());
-            let mut updates: SmallVec<usize, 32> = SmallVec::new();
-            let mut counter = 0;
-            for (idx, &vertex_id) in chunk.iter().enumerate() {
-                priority_vertices[vertex_id].priority = perm[idx];
-                let fav = assigned[vertex_id];
-                let agg = priority_vertices[vertex_id].cluster_affinities[fav];
-                counter += agg;
-                priority_vertices[vertex_id].reprioritise();
-                // println!("agg {}",agg);
-                assert!(fav < num_intervals);
-                for cluster in 0..num_intervals {
-                    let neighbors = if interval_structure.intervals_overlap(cluster, fav) {
-                        &adj_graph[vertex_id].positive_neighbors
-                    } else {
-                        &adj_graph[vertex_id].negative_neighbors
-                    };
-                    for &n in neighbors {
-                        if {
-                            let neighbor = &mut priority_vertices[n];
-                            neighbor.decrease_affinity_unsafe(cluster)
-                        } {
-                            // remember vertex for changing queue priority later
-                            updates.push(n);
-                        }
-                    }
-                }
-                // this is the expensive part
-                // println!("number of affected vertices: {}", updates.len());
-                // println!("{:?}", updates);
-                for n in updates.drain(..) {
-                    priority_vertices[n].update_favorites();
-                }
-                // agreement-=agg;
-                assigned[vertex_id] = num_intervals;
-            }
-            //unassign
+            let lost_agreement = unassign(chunk, &mut assigned, interval_structure, 
+                                          num_intervals, &mut priority_vertices, &adj_graph);
+            
+            let won_agreement =    assign(chunk, &mut assigned, interval_structure, 
+                                          num_intervals, &mut priority_vertices, &adj_graph);
 
-            //reassign
-            // assign(chunk);
-            let (assigned2, partial_agreement) = assign(
-                chunk,
-                &assigned,
-                interval_structure,
-                num_intervals,
-                &mut priority_vertices,
-                &adj_graph,
-            );
-
-            if agreement + partial_agreement - counter > best_agreement {
-                best_assigment = assigned2.clone();
-                best_agreement =  agreement + partial_agreement - counter;
-                // last_improvement = 0;
+            //overwrite the best if there was an improvement
+            if agreement + won_agreement - lost_agreement > best_agreement {
+                best_assigment = assigned.clone();
+                best_agreement =  agreement + won_agreement - lost_agreement;
             }
-            assigned = assigned2;
-            agreement = agreement + partial_agreement - counter;
+            agreement = agreement + won_agreement - lost_agreement;
             if agreement > epoch_solution {
                 epoch_solution = agreement;
                 last_improvement = 0;
             }
         }
-        last_improvement+=1;
         println!(
             "Agreement: {},{},{},{}",
             edges.len()-agreement,
@@ -268,22 +211,64 @@ pub fn greedy_absolute_interval_contraction(
             edges.len()-best_agreement,
             last_improvement
         );
+        last_improvement+=1;
     }
     // println!("{:?}", assigned);
-    return best_assigment;
+    best_assigment
+}
+
+fn unassign(idx: &[usize],
+            assigned: &mut Vec<usize>,
+            interval_structure: &IntervalStructure,
+            num_intervals: usize,
+            priority_vertices: &mut Vec<PriorityVertex>,
+            adj_graph: &Vec<SignedNeighbourhood>) -> usize {
+    let mut perm: Vec<usize> = (1..=idx.len()).collect();
+    perm.shuffle(&mut rng());
+    let mut updates: SmallVec<usize, 32> = SmallVec::new();
+    let mut removed_agreement = 0;
+    for (idx, &vertex_id) in idx.iter().enumerate() {
+        priority_vertices[vertex_id].priority = perm[idx];
+        let fav = assigned[vertex_id];
+        let agg = priority_vertices[vertex_id].cluster_affinities[fav];
+        removed_agreement += agg;
+        priority_vertices[vertex_id].reprioritise();
+        assert!(fav < num_intervals);
+        for cluster in 0..num_intervals {
+            let neighbors = if interval_structure.intervals_overlap(cluster, fav) {
+                &adj_graph[vertex_id].positive_neighbors
+            } else {
+                &adj_graph[vertex_id].negative_neighbors
+            };
+            for &n in neighbors {
+                if {
+                    let neighbor = &mut priority_vertices[n];
+                    neighbor.decrease_affinity_unsafe(cluster)
+                } {
+                    // remember vertex for changing queue priority later
+                    updates.push(n);
+                }
+            }
+        }
+        // this is the expensive part
+        for n in updates.drain(..) {
+            priority_vertices[n].update_favorites();
+        }
+        // agreement-=agg;
+        assigned[vertex_id] = num_intervals;
+    }
+    removed_agreement
 }
 
 fn assign(
     idx: &[usize],
-    assigned: &Vec<usize>,
+    assigned: &mut Vec<usize>,
     interval_structure: &IntervalStructure,
     num_intervals: usize,
-    mut priority_vertices: &mut Vec<PriorityVertex>,
+    priority_vertices: &mut Vec<PriorityVertex>,
     adj_graph: &Vec<SignedNeighbourhood>,
-) -> (Vec<usize>, usize) {
+) -> usize {
     let mut agreement: usize = 0;
-    let mut assigned = assigned.clone();
-    // let mut p_vertices = priority_vertices.clone();
 
     let mut pq: PriorityQueue<usize, (usize, usize)> = PriorityQueue::from_iter(
         idx.into_iter()
@@ -317,5 +302,5 @@ fn assign(
             pq.change_priority(&n, prio);
         }
     }
-    (assigned, agreement)
+    agreement
 }
