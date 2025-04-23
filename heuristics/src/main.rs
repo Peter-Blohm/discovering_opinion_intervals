@@ -90,9 +90,9 @@ fn main() {
         println!("GAIC++ runs: {}", runs);
 
         let start_time = Instant::now();
-        let mut interval_structure = IntervalStructure::full_structure(4);
+        let mut interval_structure = IntervalStructure::full_structure(8);
         // let node_labels = greedy_absolute_interval_contraction(signed_graph.num_vertices, &signed_graph.edges, &interval_structure, 100, runs);
-        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 100, 100);
+        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, 50, 100);
         let mut label_count:Vec<usize> = vec![0;interval_structure.intervals.len()];
         for &label in &node_labels {
             label_count[label] +=1;

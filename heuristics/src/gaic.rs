@@ -1,7 +1,7 @@
 use crate::data_types::{IntervalStructure, UsefulSignedGraph};
 use priority_queue::PriorityQueue;
 use rand::prelude::SliceRandom;
-use rand::rng;
+use rand::{rng, Rng};
 use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::time::Instant;
@@ -25,12 +25,13 @@ impl SignedNeighbourhood {
 #[derive(Clone)]
 pub struct PriorityVertex {
     cluster_affinities: Vec<usize>,
-    pub favorite_cluster: usize,
+    favorite_cluster: usize,
     runner_up: usize,
     max_affinity: usize,
     priority: usize,
     cluster_priorities: Vec<usize>,
     pub num_neighbors: usize,
+    max_count: usize,
 }
 
 impl PriorityVertex {
@@ -46,6 +47,7 @@ impl PriorityVertex {
             priority,
             cluster_priorities: perm,
             num_neighbors: 0,
+            max_count : k,
         }
     }
 
@@ -59,12 +61,20 @@ impl PriorityVertex {
         self.cluster_affinities[cluster] += 1;
         if (
             self.cluster_affinities[cluster],
+        ) == (
+            self.max_affinity,
+        ) {
+            self.max_count += 1;
+        }
+        if (
+            self.cluster_affinities[cluster],
             self.cluster_priorities[cluster],
         ) > (
             self.max_affinity,
             self.cluster_priorities[self.favorite_cluster],
         ) {
             if cluster != self.favorite_cluster {
+                self.max_count = 1;
                 self.runner_up = self.favorite_cluster;
                 self.favorite_cluster = cluster;
             }
@@ -94,21 +104,49 @@ impl PriorityVertex {
         for i in 0..self.cluster_affinities.len() {
             let a = self.cluster_affinities[i];
             let p = self.cluster_priorities[i];
+            if (a == best_aff) {
+                self.max_count += 1;
+            }
             if (a > best_aff) || (a == best_aff && p > best_pri) {
                 best_aff = a;
                 best_pri = p;
                 self.runner_up = best_idx;
                 best_idx = i;
+                self.max_count = 1;
             }
+
         }
 
         self.favorite_cluster = best_idx;
         self.max_affinity = best_aff;
     }
 
-    pub fn get_sort_priority(&self) -> (usize, usize) {
-        (self.max_affinity, self.priority)
+    pub fn get_sort_priority(&self) -> (usize, usize, usize) {
+        (self.max_affinity, self.max_count, self.priority)
     }
+    pub fn get_favorite_cluster_simulated_annealing(&self, temperature: f64) -> usize {
+        // returns the favorite cluster, but with a small chance of returning a random one
+        let mut rng = rng();
+        let temps: Vec<f64> = self.cluster_affinities
+            .iter()
+            .map(|&a| ((a as f64)/(self.num_neighbors as f64)/(temperature+0.001)).exp())
+            .collect();
+        let sum_temp: f64 = temps.iter().sum();
+        let random_value = rng.gen_range(0.0..1.0);
+        let mut cumulative_sum = 0.0003;
+        let mut cluster = 0;
+        for (i, &temp) in temps.iter().enumerate() {
+            
+            if random_value > cumulative_sum {
+                
+                cluster = i;
+            }
+            cumulative_sum += temp/sum_temp;
+        }
+        //println!("Random value: {}, cluster: {}", i, cumulative_sum);
+        cluster
+    }
+
 }
 
 pub fn greedy_absolute_interval_contraction(
@@ -160,6 +198,7 @@ pub fn greedy_absolute_interval_contraction(
         num_intervals,
         &mut priority_vertices,
         &adj_graph,
+        0.05
     );
 
     println!("Running time: {:.2?}", start_time.elapsed());
@@ -174,6 +213,7 @@ pub fn greedy_absolute_interval_contraction(
     let mut best_agreement = agreement.clone();
     let mut last_improvement: usize = 0;
     let mut epoch_solution: usize= 0;
+    let mut temp = 0.05;
     for _epoch in 1..num_runs {
         // 1) build & shuffle the full index list
         let mut indices: Vec<usize> = (0..num_vertices).collect();
@@ -181,17 +221,17 @@ pub fn greedy_absolute_interval_contraction(
             indices.shuffle(&mut rng());
         }
         // println!("Test");
-        let chunk_size = (num_vertices + num_batches -1 ) / if last_improvement < 500 {num_batches} else {last_improvement=0;epoch_solution=0;println!("reset");1};
+        let chunk_size = (num_vertices + num_batches -1 ) / if last_improvement < 100 {num_batches} else {temp *= 5.0;epoch_solution=0;println!("reset");2};
 
         // 3) slice into at most `num_batches` chunks and call `assign`
-        for chunk in indices.chunks(chunk_size).take(num_batches+_epoch*2) {
+        for chunk in indices.chunks(chunk_size).take(num_batches) { // +_epoch*2
             
             //new priorities
             let lost_agreement = unassign(chunk, &mut assigned, interval_structure, 
                                           num_intervals, &mut priority_vertices, &adj_graph);
             
             let won_agreement =    assign(chunk, &mut assigned, interval_structure, 
-                                          num_intervals, &mut priority_vertices, &adj_graph);
+                                          num_intervals, &mut priority_vertices, &adj_graph, temp);
 
             //overwrite the best if there was an improvement
             if agreement + won_agreement - lost_agreement > best_agreement {
@@ -205,13 +245,18 @@ pub fn greedy_absolute_interval_contraction(
             }
         }
         println!(
-            "Agreement: {},{},{},{}",
+            "Agreement: {},{},{},{},{}",
             edges.len()-agreement,
             edges.len()-epoch_solution,
             edges.len()-best_agreement,
-            last_improvement
+            last_improvement,
+            temp
         );
         last_improvement+=1;
+
+        if _epoch % 10 == 0 {
+            temp *= 0.9;
+        }
     }
     // println!("{:?}", assigned);
     best_assigment
@@ -267,19 +312,23 @@ fn assign(
     num_intervals: usize,
     priority_vertices: &mut Vec<PriorityVertex>,
     adj_graph: &Vec<SignedNeighbourhood>,
+    temp: f64,
 ) -> usize {
     let mut agreement: usize = 0;
-
-    let mut pq: PriorityQueue<usize, (usize, usize)> = PriorityQueue::from_iter(
+    let mut perm: Vec<usize> = (0..assigned.len()).collect();
+    perm.shuffle(&mut rng());
+    let mut pq: PriorityQueue<usize, (usize, usize, usize)> = PriorityQueue::from_iter(
         idx.into_iter()
             .map(|&i| (i, priority_vertices[i].get_sort_priority())),
     );
     while let Some((id, _)) = pq.pop() {
-        let fav = priority_vertices[id].favorite_cluster;
+        let fav = priority_vertices[id].get_favorite_cluster_simulated_annealing(
+            temp,
+        );
         assigned[id] = fav;
-        agreement += priority_vertices[id].max_affinity;
+        agreement += priority_vertices[id].cluster_affinities[fav];
 
-        let mut updates: SmallVec<(usize, (usize, usize)), 32> = SmallVec::new();
+        let mut updates: SmallVec<(usize, (usize, usize, usize)), 32> = SmallVec::new();
 
         for cluster in 0..num_intervals {
             let neighbors = if interval_structure.intervals_overlap(cluster, fav) {
