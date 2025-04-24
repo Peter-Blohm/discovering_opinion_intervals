@@ -1,6 +1,11 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::cmp::Ordering;
+use std::hash::BuildHasherDefault;
+use fxhash::FxHasher;
+
+type FxMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FxHasher>>;
+type FxSet<T> = std::collections::HashSet<T, BuildHasherDefault<FxHasher>>;
 
 #[derive(Deserialize, Debug)]
 pub struct SignedEdge {
@@ -19,17 +24,17 @@ pub struct SignedGraph {
 pub struct UsefulSignedGraph {
     pub num_vertices: usize,
     pub edges: Vec<SignedEdge>,
-    pub inverse_map: HashMap<usize, usize>,
+    pub inverse_map: FxMap<usize, usize>,
 }
 
 impl UsefulSignedGraph {
     pub fn new(graph: &SignedGraph) -> UsefulSignedGraph {
-        let vertices: std::collections::HashSet<usize> = graph.edges.iter()
+        let vertices: FxSet<usize> = graph.edges.iter()
             .flat_map(|edge| [edge.source, edge.target])
             .collect();
         let num_vertices = vertices.len();
-        let mut vertex_map: HashMap<usize, usize> = HashMap::new();
-        let mut inverse_map: HashMap<usize, usize> = HashMap::new();
+        let mut vertex_map: FxMap<usize, usize> = FxMap::default();
+        let mut inverse_map: FxMap<usize, usize> = FxMap::default();
         for (new_id, &old_id) in vertices.iter().enumerate() {
             vertex_map.insert(old_id, new_id);
             inverse_map.insert(new_id, old_id);

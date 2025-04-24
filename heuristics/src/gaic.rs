@@ -1,6 +1,5 @@
 use crate::data_types::{IntervalStructure, SignedEdge, UsefulSignedGraph};
 use priority_queue::PriorityQueue;
-use rand::prelude::SliceRandom;
 use rand::{Rng, SeedableRng};
 use smallvec::SmallVec;
 use std::time::{Duration, Instant};
@@ -8,6 +7,8 @@ use rand::rngs::StdRng;
 use serde::Deserialize;
 use fxhash::FxHasher;
 use std::hash::BuildHasherDefault;
+use rand::prelude::SliceRandom;
+
 type FxSet<T> = std::collections::HashSet<T, BuildHasherDefault<FxHasher>>;
 type FxPQ<K, P> = PriorityQueue<K, P, BuildHasherDefault<FxHasher>>;
 
@@ -329,11 +330,10 @@ fn assign(
     local_rng: &mut StdRng
 ) -> usize {
     let mut agreement: usize = 0;
-    let mut pq: FxPQ<usize, (usize, usize)>=
-        FxPQ::from_iter(
-        idx.into_iter()
-            .map(|&i| (i, priority_vertices[i].get_sort_priority())),
-    );
+    let mut pq: FxPQ<usize, (usize, usize)> =
+        FxPQ::with_capacity_and_hasher(priority_vertices.len(), Default::default());
+    pq.extend(idx.into_iter()
+                  .map(|&i| (i, priority_vertices[i].get_sort_priority())));
     while let Some((id, _)) = pq.pop() {
         let fav = priority_vertices[id].get_favorite_cluster(
             temp,
