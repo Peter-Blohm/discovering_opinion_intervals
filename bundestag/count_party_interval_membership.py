@@ -63,7 +63,6 @@ def generate_interval_report():
     person_to_fraction = load_fraction_data(votes_csv_file)
     labels_dict = read_labels_from_json(file_path_json)
     intervals = read_intervals_from_json(interval_path_json)
-    
     person_to_bundestage = load_bundestag_membership(membership_file)
     
     # Create a dictionary to store which parties are in which intervals
@@ -110,7 +109,45 @@ def generate_interval_report():
                     bundestag_info.append(f"{period_percentage:.0f}% Bundestag {period}")
                 
                 bundestag_str = ", ".join(bundestag_info)
-                print(f"    {party}: {count} members ({percentage:.1f}%) ({bundestag_str})")
+                print(f"    {party}: {count} members")# ({percentage:.1f}%) ({bundestag_str})")
+            
+            # New section that lists parties by Bundestag for this interval
+            print("\n  Bundestag breakdown:")
+
+            # Step 1: Find all Bundestag periods in this interval
+            all_periods = []
+            for party, members_list in interval_to_parties[interval_idx].items():
+                for person in members_list:
+                    if person in person_to_bundestage:
+                        # Add all Bundestag periods this person was a member of
+                        for period in person_to_bundestage[person]:
+                            all_periods.append(period)
+
+            # Get unique Bundestag periods and sort them
+            bundestag_periods = sorted(set(all_periods))
+
+            # Step 2: For each Bundestag period, analyze party distribution
+            for period in bundestag_periods:
+                print(f"    Bundestag {period}:")
+                
+                # Count how many members from each party were in this Bundestag period
+                bundestag_party_counts = defaultdict(int)
+                
+                # Go through each party and its members in this interval
+                for party, members_list in interval_to_parties[interval_idx].items():
+                    # Check each person if they were in this Bundestag period
+                    for person in members_list:
+                        if person in person_to_bundestage and period in person_to_bundestage[person]:
+                            # If yes, increment the count for this party
+                            bundestag_party_counts[party] += 1
+                
+                # Calculate total members in this Bundestag period
+                total_in_period = sum(bundestag_party_counts.values())
+                
+                # Print party breakdown for this Bundestag period, sorted by count
+                for party, count in sorted(bundestag_party_counts.items(), key=lambda x: x[1], reverse=True):
+                    percentage = (count / total_in_period) * 100
+                    print(f"      {party}:\t{count} members ({percentage:.1f}%)")
                 
         else:
             print("  No members assigned to this interval")
