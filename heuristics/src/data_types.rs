@@ -1,7 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::cmp::Ordering;
-use std::num;
 
 #[derive(Deserialize, Debug)]
 pub struct SignedEdge {
@@ -70,48 +69,6 @@ impl IntervalStructure {
         let in1 = &self.intervals[interval_index1];
         let in2 = &self.intervals[interval_index2];
         (in2.start <= in1.end) && (in1.start <= in2.end)
-    }
-
-    pub fn full_structure(k:usize) -> IntervalStructure{
-        let mut intervals:Vec<Interval> = Vec::new();
-        for i in 0..k {
-            for j in 0..k-i {
-                intervals.push(Interval {start: i as f32, end:(i+j+1) as f32 - 0.5})
-            }
-        }
-        IntervalStructure { intervals }
-    }
-    pub fn delete_interval(&mut self, index: usize){
-        let interval = self.intervals[index].clone();
-        self.intervals.swap_remove(index);
-    }
-
-    pub fn deduplicate(&mut self) -> HashMap<usize,usize>{
-
-        let mut interval_lists:Vec<Vec<usize>> = vec![Vec::new();self.intervals.len()];
-
-        for (idxa, interval) in self.intervals.clone().into_iter().enumerate() {
-            interval_lists[idxa] = vec![0;self.intervals.len()];
-            for (idxb,intervbl) in self.intervals.clone().into_iter().enumerate() {
-                if idxb < idxa {
-                    continue
-                }
-                if self.intervals_overlap(idxa,idxb){
-                    interval_lists[idxa][idxb] += 1;
-                }
-            }
-        }
-        let map: HashMap<usize,usize> = HashMap::new();
-        for list in &interval_lists {
-            // map.insert();
-            for ljst in &interval_lists {
-                if list == ljst {
-                    println!("mamma mia!");
-                }
-            }
-        }
-
-        return map;
     }
 }
 
