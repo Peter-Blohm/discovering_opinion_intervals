@@ -31,8 +31,6 @@ def create_signed_graph(vote_matrix):
     """
     Create a signed graph where:
     - Vertices are people (Bezeichnung)
-    - Edge exists if correlation > 0.5 (positive edge) or < -0.5 (negative edge)
-    - No edge if correlation is between -0.5 and 0.5
     """
     # Create empty positive and negative graphs
     G_plus = nx.Graph()
@@ -43,7 +41,6 @@ def create_signed_graph(vote_matrix):
     G_plus.add_nodes_from(people)
     G_minus.add_nodes_from(people)
     
-    # Calculate correlations and add edges
     for i, person1 in enumerate(people):
         for j, person2 in enumerate(people):
             if i >= j:  # Skip self-comparisons and duplicates
@@ -53,19 +50,31 @@ def create_signed_graph(vote_matrix):
             votes1 = vote_matrix.loc[person1].values
             votes2 = vote_matrix.loc[person2].values
             
-            # Calculate correlation if there are enough common votes
             valid_indices = np.logical_and(votes1 != 0, votes2 != 0)
-            if np.sum(valid_indices) >= 3:  # At least 3 common votes for meaningful correlation
-                corr, _ = pearsonr(
-                    votes1[valid_indices], 
-                    votes2[valid_indices]
-                )
+            # if np.sum(valid_indices) >= 3:  # At least 3 common votes for meaningful correlation
+            #     corr, _ = pearsonr(
+            #         votes1[valid_indices], 
+            #         votes2[valid_indices]
+            #     )
                 
-                # Add edges based on correlation thresholds
-                if corr > 0.5:
-                    G_plus.add_edge(person1, person2, weight=corr)
-                elif corr < -0.5:
-                    G_minus.add_edge(person1, person2, weight=corr)
+            #     # Add edges based on correlation thresholds
+            #     if corr > 0.5:
+            #         G_plus.add_edge(person1, person2, weight=corr)
+            #     elif corr < -0.5:
+            #         G_minus.add_edge(person1, person2, weight=corr)
+            if np.sum(valid_indices) >= 3:  # At least 3 common votes for meaningful agreement ratio
+                # Calculate agreement ratio instead of agreement ratio
+                votes1_valid = votes1[valid_indices]
+                votes2_valid = votes2[valid_indices]
+                agreement_count = sum(votes1_valid == votes2_valid)
+                total_votes = len(votes1_valid)
+                agreement_ratio = agreement_count / total_votes
+                
+                # Add edges based on agreement ratio thresholds
+                if agreement_ratio > 0.75:
+                    G_plus.add_edge(person1, person2, weight=agreement_ratio)
+                elif agreement_ratio < 0.25:
+                    G_minus.add_edge(person1, person2, weight=agreement_ratio)
     
     # Create the signed graph using your class
     signed_graph = SignedGraph(G_plus, G_minus)
@@ -145,6 +154,46 @@ if __name__ == "__main__":
     output_dir = "bundestag/graphs"
     edges = [(u, v, 1) for u, v in signed_graph.G_plus.edges()] + \
             [(u, v, -1) for u, v in signed_graph.G_minus.edges()]
+    
+    print("Number of people with an edge: ")
+    print(len(set([u for u, v, sign in edges] + [v for u, v, sign in edges])))
+
+    # Difference between the the people from the vote matrix and the ones from the edge list
+    print("Number of people in the vote matrix: ")
+    print(len(vote_matrix.index))
+    print("Difference: ")
+    print(len(vote_matrix.index) - len(set([u for u, v, sign in edges] + [v for u, v, sign in edges])))
+
+    # Find people who are in the vote matrix but don't have any edges
+    people_with_edges = set([u for u, v, sign in edges] + [v for u, v, sign in edges])
+    people_without_edges = set(vote_matrix.index) - people_with_edges
+    
+    # Print agreement ratios for people without edges (for sanity checking)
+    # print("\nChecking agreement ratios for people without edges:")
+    # for person_without_edges in sorted(people_without_edges):
+    #     votes_person = vote_matrix.loc[person_without_edges].values
+    #     print(f"\n{person_without_edges} agreement ratios:")
+        
+    #     for other_person in people_with_edges:
+    #         votes_other = vote_matrix.loc[other_person].values
+
+    #         # Find where both have valid votes
+    #         valid_indices = np.logical_and(votes_person != 0, votes_other != 0)
+    #         common_votes = np.sum(valid_indices)
+            
+    #         if common_votes >= 3:
+    #             print(votes_person[valid_indices], votes_other[valid_indices])
+    #             # Calculate agreement ratio like in create_signed_graph
+    #             votes1_valid = votes_person[valid_indices]
+    #             votes2_valid = votes_other[valid_indices]
+    #             agreement_count = sum(votes1_valid == votes2_valid)
+    #             agreement_ratio = agreement_count / common_votes
+    #             print(f"  - With {other_person}: agreement_ratio={agreement_ratio:.3f}, common votes={common_votes}")
+
+    print("\nPeople who voted but don't have agreement_ratios exceeding threshold:")
+    for person in sorted(people_without_edges):
+        print(f"- {person}")
+    print(f"Total: {len(people_without_edges)} people without connections")
     
     # Save graph with ID mapping
     graph_file, mapping_file = save_graph_to_file(edges, "bundestag_signed_graph", output_dir, person_to_id)
