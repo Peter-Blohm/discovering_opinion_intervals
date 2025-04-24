@@ -37,7 +37,7 @@ def read_intervals_from_json(json_path):
 
 def generate_interval_report():
     # File paths
-    file_path_json = ".json"
+    file_path_json = "heuristics/bundestag2_solution.json"
     interval_path_json = "intervals.json"
     signed_graph_file = "bundestag/graphs/bundestag_signed_graph.txt"
     id_mapping_file = "bundestag/graphs/bundestag_signed_graph_id_mapping.csv" 
