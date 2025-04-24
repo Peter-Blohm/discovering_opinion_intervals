@@ -1,0 +1,9 @@
+{
+  "num_epochs": 10000,
+  "timeout_s": 100,
+  "early_stopping_epochs":10000,
+  "num_reassignment_chunks":100,
+  "initial_temperature":0.0,
+  "temperature_decay_factor":0.9,
+  "temperature_decay_epochs":50
+}
