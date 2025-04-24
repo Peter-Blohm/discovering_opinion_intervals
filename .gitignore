@@ -1,2 +1,4 @@
 /data/
 *.pyc
+bundestag/graphs/*
+*.Rmd

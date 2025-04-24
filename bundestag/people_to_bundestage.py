@@ -54,7 +54,7 @@ def map_people_to_bundestag_matrix(input_file):
             person = row['Bezeichnung']
             
             # Extract date from filename (assuming YYYYMMDD_*)
-            match = re.match(r'^(\d{8})_.*$', filename)
+            match = re.match(r'^(\d{8}).*$', filename)
             if match:
                 date_str = match.group(1)
                 people_votes[person].add(date_str)
