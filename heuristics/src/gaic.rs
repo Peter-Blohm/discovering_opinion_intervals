@@ -47,11 +47,13 @@ impl WeightedNeighbourhood {
 
 pub struct SignedAdjacencyList {
     pub total_edge_weights: f64,
+    pub total_negative_edge_weights: f64,
     pub adj_graph: Vec<WeightedNeighbourhood>,
 }
 impl SignedAdjacencyList {
     pub fn new(edges: &Vec<SignedEdge>, num_vertices:usize) -> Self {
         let mut total_edge_weights = 0.0;
+        let mut total_negative_edge_weights = 0.0;
 
         let mut adj_graph: Vec<WeightedNeighbourhood> = (0..num_vertices)
             .into_iter()
@@ -61,9 +63,10 @@ impl SignedAdjacencyList {
             adj_graph[edge.source].weighted_neighbors.insert(edge.target,edge.weight);
             adj_graph[edge.target].weighted_neighbors.insert(edge.source,edge.weight);
             total_edge_weights += f64::abs(edge.weight);
+            if edge.weight <  0.0 {total_negative_edge_weights += f64::abs(edge.weight);}
         }
         // no longer mutable
-        SignedAdjacencyList { adj_graph, total_edge_weights }
+        SignedAdjacencyList { adj_graph, total_edge_weights, total_negative_edge_weights }
     }
 
 
@@ -228,13 +231,14 @@ pub fn greedy_absolute_interval_contraction(
 
     // println!("Running time: {:.2?}", start_time.elapsed());
     // println!("One run done");
-    println!("edge_weight,current, best_batch, best, epochs_since_restart, current_temp, runtime");
+    println!("edge_weight,current, best_batch, best,best+negative_edge_weight, epochs_since_restart, current_temp, runtime");
     println!(
-        "{}, {}, {}, {}, {}, {}, {:?}",
+        "{}, {}, {}, {}, {:.2}, {}, {}, {:?}",
         adj_graph.total_edge_weights,
         adj_graph.total_edge_weights-agreement,
         adj_graph.total_edge_weights-agreement,
         adj_graph.total_edge_weights-agreement,
+        -adj_graph.total_negative_edge_weights+adj_graph.total_edge_weights-agreement,
         0,
         temp,
         Instant::now() - start_time
@@ -276,11 +280,12 @@ pub fn greedy_absolute_interval_contraction(
             }
         }
         println!(
-            "{}, {}, {}, {}, {}, {}, {:?}",
+            "{}, {}, {}, {}, {},{}, {}, {:?}",
             adj_graph.total_edge_weights,
             adj_graph.total_edge_weights-agreement,
             adj_graph.total_edge_weights-epoch_solution,
             adj_graph.total_edge_weights-best_agreement,
+            -adj_graph.total_negative_edge_weights+adj_graph.total_edge_weights-agreement,
             last_improvement,
             temp,
             Instant::now() - start_time
