@@ -1,6 +1,7 @@
 import networkx as nx
 import argparse
 import os
+from tqdm import tqdm
 
 from graph_utils.signed_graph import read_signed_graph, SignedGraph, read_weighted_graph
 
@@ -24,7 +25,7 @@ def write_signed_graph_to_metis(G: SignedGraph, output_file: str):
         f.write(f"{node_mapping[max(nodes)]} {total_edges} 11\n")
 
         # Iterate through each node in sorted order to maintain 1-based index mapping
-        for x in range(0 if startFromZero else 1, max(nodes)+1):
+        for x in tqdm(range(0 if startFromZero else 1, max(nodes)+1), desc="Writing signed graph"):
             # Collect all neighbors from G_plus and G_minus
             if x in nodes:
                 adj_plus = list(G.G_plus.neighbors(x))
@@ -71,15 +72,14 @@ def write_weighted_graph_to_metis(G: nx.Graph, output_file: str):
         f.write(f"{node_mapping[max(nodes)]} {total_edges} 11\n")
 
         # Iterate through each node in sorted order
-        for x in range(0 if startFromZero else 1, max(nodes)+1):
+        for x in tqdm(range(0 if startFromZero else 1, max(nodes)+1), desc="Writing weighted graph"):
             if x in nodes:
                 adj_list = []
                 # Get all neighbors with their weights
                 for v in G.neighbors(x):
                     weight = int(G[x][v]['weight'])
-                    if weight != 0:
-                        # Map the neighbor to its new ID
-                        adj_list.append((node_mapping[v], weight))
+                    # Map the neighbor to its new ID
+                    adj_list.append((node_mapping[v], weight))
 
                 # Sort the adjacency list by the neighbor's mapped ID
                 adj_list.sort(key=lambda x: x[0])

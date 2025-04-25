@@ -91,7 +91,7 @@ def read_weighted_graph(file: str) -> nx.Graph:
     with open(file, 'r') as file:
         for line in file:
             # Skip comment lines that start with '#'
-            if line.startswith('#'):
+            if line.startswith('#') or line.startswith('%'):
                 continue
 
             # Split the line into FromNodeId, ToNodeId, and Sign

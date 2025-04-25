@@ -85,6 +85,8 @@ if __name__ == "__main__":
     
     if args.type == 'weighted' or args.type == 'both':
         G_weighted = read_weighted_graph(data_path)
+        print(f"Number of nodes in weighted graph: {G_weighted.number_of_nodes()}")
+        print(f"Number of edges in weighted graph: {G_weighted.number_of_edges()}")
         weighted_output = f"{output_base}_weighted.json"
         write_weighted_graph_to_json(G_weighted, weighted_output)
         print(f"Weighted graph written to {weighted_output}")
