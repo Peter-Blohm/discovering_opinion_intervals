@@ -5,11 +5,12 @@ use smallvec::SmallVec;
 use std::time::{Duration, Instant};
 use rand::rngs::StdRng;
 use serde::Deserialize;
-use fxhash::FxHasher;
+use fxhash::{FxHashMap, FxHasher};
 use std::hash::BuildHasherDefault;
 use rand::prelude::SliceRandom;
 
 type FxSet<T> = std::collections::HashSet<T, BuildHasherDefault<FxHasher>>;
+type FxMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FxHasher>>;
 type FxPQ<K, P> = PriorityQueue<K, P, BuildHasherDefault<FxHasher>>;
 
 #[derive(Clone)]
@@ -28,26 +29,41 @@ impl SignedNeighbourhood {
     }
 }
 
+#[derive(Clone)]
+pub struct WeightedNeighbourhood {
+    //adjacency lists
+    pub weighted_neighbors: FxMap<usize,f64>,
+}
+
+impl WeightedNeighbourhood {
+    pub fn new() -> Self {
+        WeightedNeighbourhood {
+            weighted_neighbors: FxMap::default(),
+        }
+    }
+}
+
+
+
 pub struct SignedAdjacencyList {
-    pub adj_graph: Vec<SignedNeighbourhood>,
+    pub total_edge_weights: f64,
+    pub adj_graph: Vec<WeightedNeighbourhood>,
 }
 impl SignedAdjacencyList {
     pub fn new(edges: &Vec<SignedEdge>, num_vertices:usize) -> Self {
-        let mut adj_graph: Vec<SignedNeighbourhood> = (0..num_vertices)
+        let mut total_edge_weights = 0.0;
+
+        let mut adj_graph: Vec<WeightedNeighbourhood> = (0..num_vertices)
             .into_iter()
-            .map(|_| SignedNeighbourhood::new())
+            .map(|_| WeightedNeighbourhood::new())
             .collect();
         for edge in edges {
-            if edge.weight == 1 {
-                adj_graph[edge.source].positive_neighbors.insert(edge.target);
-                adj_graph[edge.target].positive_neighbors.insert(edge.source);
-            } else {
-                adj_graph[edge.source].negative_neighbors.insert(edge.target);
-                adj_graph[edge.target].negative_neighbors.insert(edge.source);
-            }
+            adj_graph[edge.source].weighted_neighbors.insert(edge.target,edge.weight);
+            adj_graph[edge.target].weighted_neighbors.insert(edge.source,edge.weight);
+            total_edge_weights += f64::abs(edge.weight);
         }
         // no longer mutable
-        SignedAdjacencyList { adj_graph }
+        SignedAdjacencyList { adj_graph, total_edge_weights }
     }
 
 
@@ -55,24 +71,24 @@ impl SignedAdjacencyList {
 
 #[derive(Clone)]
 pub struct PriorityVertex {
-    cluster_affinities: Vec<usize>,
+    cluster_affinities: Vec<f64>,
     favorite_cluster: usize,
     runner_up: usize,
-    max_affinity: usize,
+    max_affinity: f64,
     priority: usize,
     cluster_priorities: Vec<usize>,
 }
 
 impl PriorityVertex {
     pub fn new(priority: usize, k: usize, local_rng: &mut StdRng) -> Self {
-        let cluster_affinities = vec![0; k];
+        let cluster_affinities = vec![0.0; k];
         let mut perm: Vec<usize> = (1..=k).collect();
         perm.shuffle(local_rng);
         PriorityVertex {
             cluster_affinities,
             favorite_cluster: 0,
             runner_up: 0,
-            max_affinity: 0,
+            max_affinity: 0.0,
             priority,
             cluster_priorities: perm,
         }
@@ -83,9 +99,10 @@ impl PriorityVertex {
         perm.shuffle(local_rng);
         self.cluster_priorities = perm;
     }
-    pub fn increase_affinity(&mut self, cluster: usize) -> bool {
+    pub fn increase_affinity(&mut self, cluster: usize, weight: f64) -> bool {
+        assert!(weight > 0.0);
         // returns whether its max_affinity changed
-        self.cluster_affinities[cluster] += 1;
+        self.cluster_affinities[cluster] += weight;
         if (
             self.cluster_affinities[cluster],
             self.cluster_priorities[cluster],
@@ -103,15 +120,16 @@ impl PriorityVertex {
         false
     }
 
-    pub fn decrease_affinity_unsafe(&mut self, cluster: usize) -> bool {
-        self.cluster_affinities[cluster] -= 1;
+    pub fn decrease_affinity_unsafe(&mut self, cluster: usize, weight: f64) -> bool {
+        assert!(weight > 0.0);
+        self.cluster_affinities[cluster] -= weight;
         if self.cluster_affinities[self.favorite_cluster] <= self.cluster_affinities[self.runner_up]
         {
             return true;
         }
         // cluster affinities of favorite cluster larger than all others
         if cluster == self.favorite_cluster {
-            self.max_affinity -= 1;
+            self.max_affinity -= weight;
         }
         false
     }
@@ -135,7 +153,7 @@ impl PriorityVertex {
     }
 
     pub fn get_sort_priority(&self) -> (usize,  usize) {
-        (self.max_affinity, self.priority)
+        (f64::floor(self.max_affinity) as usize, self.priority)
     }
     pub fn get_favorite_cluster(&self, temperature: f64, local_rng: &mut StdRng) -> usize {
         if temperature == 0.0 { // no simulated annealing
@@ -210,12 +228,13 @@ pub fn greedy_absolute_interval_contraction(
 
     // println!("Running time: {:.2?}", start_time.elapsed());
     // println!("One run done");
-    println!("current, best_batch, best, epochs_since_restart, current_temp, runtime");
+    println!("edge_weight,current, best_batch, best, epochs_since_restart, current_temp, runtime");
     println!(
-        "{}, {}, {}, {}, {}, {:?}",
-        edges.len()-agreement,
-        edges.len()-agreement,
-        edges.len()-agreement,
+        "{}, {}, {}, {}, {}, {}, {:?}",
+        adj_graph.total_edge_weights,
+        adj_graph.total_edge_weights-agreement,
+        adj_graph.total_edge_weights-agreement,
+        adj_graph.total_edge_weights-agreement,
         0,
         temp,
         Instant::now() - start_time
@@ -223,7 +242,7 @@ pub fn greedy_absolute_interval_contraction(
     let mut best_assigment = assigned.clone();
     let mut best_agreement = agreement.clone();
     let mut last_improvement: usize = 0;
-    let mut epoch_solution: usize= 0;
+    let mut epoch_solution: f64= 0.0;
     let timeout =  Duration::from_millis(config.timeout_s * 1000);
     //////////////////// MAIN REASSIGNMENT LOOP ///////////////////////////////
     for epoch in 1..config.num_epochs{
@@ -257,10 +276,11 @@ pub fn greedy_absolute_interval_contraction(
             }
         }
         println!(
-            "{}, {}, {}, {}, {}, {:?}",
-            edges.len()-agreement,
-            edges.len()-epoch_solution,
-            edges.len()-best_agreement,
+            "{}, {}, {}, {}, {}, {}, {:?}",
+            adj_graph.total_edge_weights,
+            adj_graph.total_edge_weights-agreement,
+            adj_graph.total_edge_weights-epoch_solution,
+            adj_graph.total_edge_weights-best_agreement,
             last_improvement,
             temp,
             Instant::now() - start_time
@@ -277,15 +297,15 @@ fn unassign(idx: &[usize],
             interval_structure: &IntervalStructure,
             num_intervals: usize,
             priority_vertices: &mut Vec<PriorityVertex>,
-            adj_graph: &Vec<SignedNeighbourhood>,
+            adj_graph: &Vec<WeightedNeighbourhood>,
             local_rng: &mut StdRng
 
-) -> usize {
+) -> f64 {
     let mut perm: Vec<usize> = (0..idx.len()).collect();
     perm.shuffle(local_rng);
 
     let mut updates: SmallVec<usize, 32> = SmallVec::new();
-    let mut removed_agreement = 0;
+    let mut removed_agreement = 0.0;
     for (idx, &vertex_id) in idx.iter().enumerate() {
         priority_vertices[vertex_id].priority = perm[idx];
         let fav = assigned[vertex_id];
@@ -294,15 +314,15 @@ fn unassign(idx: &[usize],
         priority_vertices[vertex_id].reprioritise(local_rng);
         debug_assert!(fav < num_intervals);
         for cluster in 0..num_intervals {
-            let neighbors = if interval_structure.intervals_overlap(cluster, fav) {
-                &adj_graph[vertex_id].positive_neighbors
-            } else {
-                &adj_graph[vertex_id].negative_neighbors
-            };
-            for &n in neighbors {
+            let neighbors = &adj_graph[vertex_id].weighted_neighbors;
+            for (&n, &weight) in neighbors {
+                let neighbor = &mut priority_vertices[n];
                 if {
-                    let neighbor = &mut priority_vertices[n];
-                    neighbor.decrease_affinity_unsafe(cluster)
+                    let mut ret = false;
+                    if interval_structure.intervals_overlap(cluster, fav) == (weight > 0.0) { //if positive weight and overlap or negative weight an no overlap
+                        ret= neighbor.decrease_affinity_unsafe(cluster, f64::abs(weight));
+                    }
+                    ret
                 } {
                     // remember vertex for changing queue priority later
                     updates.push(n);
@@ -325,11 +345,11 @@ fn assign(
     interval_structure: &IntervalStructure,
     num_intervals: usize,
     priority_vertices: &mut Vec<PriorityVertex>,
-    adj_graph: &Vec<SignedNeighbourhood>,
+    adj_graph: &Vec<WeightedNeighbourhood>,
     temp: f64,
     local_rng: &mut StdRng
-) -> usize {
-    let mut agreement: usize = 0;
+) -> f64 {
+    let mut agreement: f64 = 0.0;
     let mut pq: FxPQ<usize, (usize, usize)> =
         FxPQ::with_capacity_and_hasher(priority_vertices.len(), Default::default());
     pq.extend(idx.into_iter()
@@ -345,15 +365,15 @@ fn assign(
         let mut updates: SmallVec<(usize, (usize, usize)), 32> = SmallVec::new();
 
         for cluster in 0..num_intervals {
-            let neighbors = if interval_structure.intervals_overlap(cluster, fav) {
-                &adj_graph[id].positive_neighbors
-            } else {
-                &adj_graph[id].negative_neighbors
-            };
-            for &n in neighbors {
+            let neighbors = &adj_graph[id].weighted_neighbors;
+            for (&n, &weight) in neighbors {
+                let neighbor = &mut priority_vertices[n];
                 if {
-                    let neighbor = &mut priority_vertices[n];
-                    neighbor.increase_affinity(cluster)
+                    let mut ret = false;
+                    if interval_structure.intervals_overlap(cluster, fav) == (weight > 0.0) { //if positive weight and overlap or negative weight an no overlap
+                        ret= neighbor.increase_affinity(cluster, f64::abs(weight));
+                    }
+                    ret
                 } {
                     // remember vertex for changing queue priority later
                     updates.push((n, priority_vertices[n].get_sort_priority()));

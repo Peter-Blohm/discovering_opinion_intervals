@@ -11,7 +11,7 @@ type FxSet<T> = std::collections::HashSet<T, BuildHasherDefault<FxHasher>>;
 pub struct SignedEdge {
     pub source: usize,
     pub target: usize,
-    pub weight: i32,
+    pub weight: f64,
 }
 
 #[derive(Deserialize, Debug)]
@@ -79,7 +79,7 @@ impl IntervalStructure {
 
 pub struct DynamicGraph {
     //adjacency lists
-    pub vertices: Vec<HashMap<usize, i32>>,
+    pub vertices: Vec<HashMap<usize, f64>>,
 }
 
 impl DynamicGraph {
@@ -92,12 +92,12 @@ impl DynamicGraph {
         self.vertices[a].contains_key(&b)
     }
 
-    pub fn get_adjacent_vertices(&self, v: usize) -> &HashMap<usize, i32> {
+    pub fn get_adjacent_vertices(&self, v: usize) -> &HashMap<usize, f64> {
         &self.vertices[v]
     }
 
-    pub fn get_edge_weight(&self, a: usize, b: usize) -> i32 {
-        *self.vertices[a].get(&b).unwrap_or(&0)
+    pub fn get_edge_weight(&self, a: usize, b: usize) -> f64 {
+        *self.vertices[a].get(&b).unwrap_or(&0.0)
     }
 
     pub fn remove_vertex(&mut self, v: usize) {
@@ -108,9 +108,9 @@ impl DynamicGraph {
         self.vertices[v].clear();
     }
 
-    pub fn update_edge_weight(&mut self, a: usize, b: usize, w: i32) {
-        *self.vertices[a].entry(b).or_insert(0) += w;
-        *self.vertices[b].entry(a).or_insert(0) += w;
+    pub fn update_edge_weight(&mut self, a: usize, b: usize, w: f64) {
+        *self.vertices[a].entry(b).or_insert(0.0) += w;
+        *self.vertices[b].entry(a).or_insert(0.0) += w;
     }
 }
 

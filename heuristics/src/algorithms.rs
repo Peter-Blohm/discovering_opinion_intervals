@@ -113,14 +113,14 @@ pub fn greedy_additive_edge_contraction(
 ///
 /// # Returns
 /// The number of violations
-pub fn cc_compute_violations(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> usize {
-    let mut violations = 0;
+pub fn cc_compute_violations(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> f64 {
+    let mut violations = 0.0;
 
     for edge in edges {
         let same_cluster = node_labels[edge.source] == node_labels[edge.target];
         
-        if (edge.weight < 0 && same_cluster) || (edge.weight > 0 && !same_cluster) {
-            violations += 1;
+        if (edge.weight < 0.0 && same_cluster) || (edge.weight > 0.0 && !same_cluster) {
+            violations += f64::abs(edge.weight);
         }
     }
 
@@ -167,7 +167,7 @@ pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<us
         
         let mut best_move_node_idx = None;
         let mut best_move_cluster = None;
-        let mut best_move_violations = usize::MAX;
+        let mut best_move_violations = f64::MAX;
         let mut best_move_counter = 0;
         
         for &node_idx in &node_indices {
@@ -182,7 +182,7 @@ pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<us
                 
                 // Calculate new violation count
                 // Compute violations delta by only checking adjacent vertices
-                let mut new_violations_delta: i32 = 0;
+                let mut new_violations_delta: f64 = 0.0;
                 let old_cluster = current_cluster;
                 let new_cluster = cluster;
                 
@@ -191,19 +191,19 @@ pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<us
                     let neighbor_cluster = best_labels[neighbor];
                     
                     // Old contribution
-                    if (weight < 0 && old_cluster == neighbor_cluster) || 
-                       (weight > 0 && old_cluster != neighbor_cluster) {
-                        new_violations_delta -= 1; // Remove old violation
+                    if (weight < 0.0 && old_cluster == neighbor_cluster) || 
+                       (weight > 0.0 && old_cluster != neighbor_cluster) {
+                        new_violations_delta -= f64::abs(weight); // Remove old violation
                     }
                     
                     // New contribution
-                    if (weight < 0 && new_cluster == neighbor_cluster) || 
-                       (weight > 0 && new_cluster != neighbor_cluster) {
-                        new_violations_delta += 1; // Add new violation
+                    if (weight < 0.0 && new_cluster == neighbor_cluster) || 
+                       (weight > 0.0 && new_cluster != neighbor_cluster) {
+                        new_violations_delta += f64::abs(weight); // Add new violation
                     }
                 }
                 
-                let new_violations = (best_violations as i32 + new_violations_delta) as usize;
+                let new_violations = (best_violations + new_violations_delta);
                 
                 // Reservoir sampling with size 1
                 if new_violations < best_move_violations {
@@ -267,8 +267,8 @@ pub fn compute_interval_violations(
     node_labels: &[usize],
     interval_structure: &IntervalStructure,
     cluster_to_interval_map: &HashMap<usize, usize>
-) -> usize {
-    let mut violations = 0;
+) -> f64 {
+    let mut violations = 0.0;
 
     for edge in edges {
         let source_cluster = node_labels[edge.source];
@@ -278,8 +278,8 @@ pub fn compute_interval_violations(
         if source_cluster == target_cluster {
             // For negative edges within the same cluster, it's always a violation
             // as they'll be assigned to the same interval
-            if edge.weight < 0 {
-                violations += 1;
+            if edge.weight < 0.0 {
+                violations += -edge.weight;
             }
             continue;
         }
@@ -295,8 +295,8 @@ pub fn compute_interval_violations(
         // Violation if:
         // - Positive edge and intervals don't overlap
         // - Negative edge and intervals overlap
-        if (edge.weight > 0 && !intervals_overlap) || (edge.weight < 0 && intervals_overlap) {
-            violations += 1;
+        if (edge.weight > 0.0 && !intervals_overlap) || (edge.weight < 0.0 && intervals_overlap) {
+            violations += f64::abs(edge.weight);
         }
     }
 
@@ -332,7 +332,7 @@ pub fn brute_force_interval_structure(
     edges: &Vec<SignedEdge>,
     node_labels: &[usize],
     interval_structure: &IntervalStructure
-) -> (HashMap<usize, usize>, usize) {
+) -> (HashMap<usize, usize>, f64) {
     // Find unique clusters - these can be arbitrary numbers
     let mut unique_clusters: Vec<usize> = node_labels.iter().cloned().collect();
     unique_clusters.sort();
@@ -365,7 +365,7 @@ pub fn brute_force_interval_structure(
     println!("Testing {} permutations", total_permutations);
     
     let start_time = Instant::now();
-    let mut best_violations = usize::MAX;
+    let mut best_violations = f64::MAX;
     let mut best_mapping = HashMap::new();
     
     // For progress reporting
