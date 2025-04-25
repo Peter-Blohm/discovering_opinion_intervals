@@ -4,11 +4,10 @@ from numpy.random import permutation
 #from torch.cuda import graph
 
 from graph_utils.graph_embeddings.data.fast_gd_embedding import central_initial_solution, \
-    optimize_via_gd_but_like_faster, permutation_initial_solution
-from graph_utils.graph_embeddings.gd_embedding import optimize_via_gd, count_violations, count_primitive_violations
-from graph_utils.graphics.draw_embedding import plot_combined_graph_and_intervals, get_cycle_positions
+    optimize_via_gd_but_like_faster
+from graph_utils.graphics.draw_embedding import get_cycle_positions
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
-from graph_utils.signed_graph_kernelization import kernelize_graph
+from graph_utils.signed_graph_kernelization import kernelize_signed_graph
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -134,7 +133,7 @@ if __name__ == "__main__":
 
     graph = read_signed_graph(file)
 
-    graphs = kernelize_graph(graph, safe=True)
+    graphs = kernelize_signed_graph(graph, safe=True)
 
     #embeddable, start, end = check_embeddability(file, None)
     

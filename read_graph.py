@@ -7,7 +7,7 @@ import h5py
 # from graph_utils.graph_embeddings.data.fast_gd_embedding import adjacency_matrix
 from graph_utils.signed_graph_heuristics import find_max_ratio_vertex
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
-from graph_utils.signed_graph_kernelization import kernelize_graph
+from graph_utils.signed_graph_kernelization import kernelize_signed_graph
 
 
 def read_graph(file):
@@ -43,7 +43,7 @@ def chicken_algorithm(G: SignedGraph):
     :param G:
     :return:
     """
-    graphs = kernelize_graph(G)
+    graphs = kernelize_signed_graph(G)
     if len(graphs) == 0:
         return 0
     vio = 0
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     print(f"Negative edges {G.G_minus.number_of_edges()}")
 
     # Kernelize the graph
-    graphs = kernelize_graph(G, safe=True)
+    graphs = kernelize_signed_graph(G, safe=True)
     largest_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
     G.G_plus = nx.relabel.convert_node_labels_to_integers(G.G_plus, first_label=1, ordering='default')
     G.G_minus = nx.relabel.convert_node_labels_to_integers(G.G_minus, first_label=1, ordering='default')

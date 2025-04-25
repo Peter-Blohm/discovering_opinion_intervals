@@ -2,7 +2,7 @@ import gurobipy as gp
 from gurobipy import GRB
 
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
-from graph_utils.signed_graph_kernelization import kernelize_graph, _find_one_seperated_components
+from graph_utils.signed_graph_kernelization import kernelize_signed_graph, _find_one_seperated_components
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -14,7 +14,7 @@ from tqdm import tqdm
 def count_sheep(file: str):
 
     graph = read_signed_graph(file)
-    kernels = kernelize_graph(graph)
+    kernels = kernelize_signed_graph(graph)
 
     print("Num Nodes in largest kernel: ", len(kernels[0].G_plus.nodes))
 
@@ -22,7 +22,7 @@ def count_sheep(file: str):
         new_kernels = []
         for kernel in kernels:
             new_kernels.extend(_find_one_seperated_components(kernel))
-        new_kernels = [temp for temp in (kernelize_graph(krnl) for krnl in new_kernels)]
+        new_kernels = [temp for temp in (kernelize_signed_graph(krnl) for krnl in new_kernels)]
         if len(new_kernels) == len(kernels):
             break
         kernels = new_kernels

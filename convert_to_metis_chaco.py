@@ -3,7 +3,6 @@ import argparse
 import os
 
 from graph_utils.signed_graph import read_signed_graph, SignedGraph, read_weighted_graph
-from graph_utils.signed_graph_kernelization import kernelize_graph
 
 def write_signed_graph_to_metis(G: SignedGraph, output_file: str):
     # Get all unique nodes from G_plus and sort them

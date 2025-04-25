@@ -1,5 +1,5 @@
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
-from graph_utils.signed_graph_kernelization import kernelize_graph
+from graph_utils.signed_graph_kernelization import kernelize_signed_graph
 
 import numpy as np
 import gurobipy as gp
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     print("bark")
     graph = read_signed_graph(file)
-    graph = kernelize_graph(graph, safe=True)[0]
+    graph = kernelize_signed_graph(graph, safe=True)[0]
     
     x_values = solve_lp(graph)
 

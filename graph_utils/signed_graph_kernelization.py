@@ -140,7 +140,7 @@ def _find_one_seperated_components(graph: SignedGraph):
 
 #endregion
 
-def kernelize_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
+def kernelize_signed_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
     """
     takes the networkx graph, performs EXACT kernelization methods and returns all subgraph kernels in a list
     :param graph: the input nx.Graph
@@ -166,7 +166,7 @@ def kernelize_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
         return graphs
     kernel_graphs = []
     for g in graphs:
-        kernel_graphs.extend(kernelize_graph(g))
+        kernel_graphs.extend(kernelize_signed_graph(g))
     return kernel_graphs
 
 def _find_singly_pos_connected_vertices(graph: SignedGraph):
