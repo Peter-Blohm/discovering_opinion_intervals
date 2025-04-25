@@ -78,7 +78,9 @@ def write_weighted_graph_to_metis(G: nx.Graph, output_file: str):
                 # Get all neighbors with their weights
                 for v in G.neighbors(x):
                     weight = int(G[x][v]['weight'])
-                    adj_list.append((node_mapping[v], weight))
+                    if weight != 0:
+                        # Map the neighbor to its new ID
+                        adj_list.append((node_mapping[v], weight))
 
                 # Sort the adjacency list by the neighbor's mapped ID
                 adj_list.sort(key=lambda x: x[0])

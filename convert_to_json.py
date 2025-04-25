@@ -41,11 +41,12 @@ def write_weighted_graph_to_json(weighted_graph: nx.Graph, output_file: str):
     for u, v, data in weighted_graph.edges(data=True):
         if u > v:
             u, v = v, u
-        edges.append({
-            "source": u,
-            "target": v,
-            "weight": data['weight']
-        })
+        if data['weight'] != 0:
+            edges.append({
+                "source": u,
+                "target": v,
+                "weight": data['weight']
+            })
 
     data = {
         "edges": edges

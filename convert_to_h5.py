@@ -60,8 +60,9 @@ def write_weighted_graph_to_hdf5(graph: nx.Graph, output_file: str, graph_name="
     edge_values = []
     
     for u, v, data in graph.edges(data=True):
-        edge_list.append((u, v))
-        edge_values.append(data['weight'])
+        if data['weight'] != 0:
+            edge_list.append((u, v))
+            edge_values.append(data['weight'])
     
     edges = np.array(edge_list)
     edge_values = np.array(edge_values, dtype=np.float64)
