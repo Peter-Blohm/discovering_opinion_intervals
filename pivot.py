@@ -30,10 +30,6 @@ def pivot_clustering(graph):
 
     return clusters
 
-# Example Usage
-G = nx.erdos_renyi_graph(10, 0.3, seed=42)  # Generate a random graph
-
-
 if __name__ == "__main__":
     #for file in os.listdir("data"):
     data = f"data/soc-sign-bitcoinotc.csv"
