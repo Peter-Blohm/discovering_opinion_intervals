@@ -88,8 +88,12 @@ for filepath in files:
     df['ja/nein'] = df.apply(lambda row: 'ja' if row['ja'] == 1 else 'nein', axis=1)
 
     # keep only the needed columns
-    df = df[['Bezeichnung', 'Fraktion/Gruppe', 'ja/nein']].copy()
+    df = df[['Name', 'Vorname', 'Fraktion/Gruppe', 'ja/nein']].copy()
+    # throw away the ambiguous disambiguation strings
+    df['Name'] = df['Name'].map(lambda x: x.rsplit(' ',1)[0])
+    df['Vorname'] = df['Vorname'].map(lambda x: x.rsplit(' ', 1)[0])
 
+    df['Bezeichnung'] = df['Name'] + ' ' + df['Vorname']
     # add filename column
     df.insert(0, 'filename', os.path.basename(filepath))
 
@@ -97,4 +101,4 @@ for filepath in files:
 
 # concatenate all and write out
 result = pd.concat(all_dfs, ignore_index=True)
-result.to_csv("all_votes.csv", index=False)
+result.to_csv("all_votes_name_firstname.csv", index=False)
