@@ -233,7 +233,7 @@ pub fn greedy_absolute_interval_contraction(
     // println!("One run done");
     println!("edge_weight,current, best_batch, best,best+negative_edge_weight, epochs_since_restart, current_temp, runtime");
     println!(
-        "{}, {}, {}, {}, {:.2}, {}, {}, {:?}",
+        "{}, {}, {}, {}, {:.2}, {}, {}, {:.3}",
         adj_graph.total_edge_weights,
         adj_graph.total_edge_weights-agreement,
         adj_graph.total_edge_weights-agreement,
@@ -241,7 +241,7 @@ pub fn greedy_absolute_interval_contraction(
         -adj_graph.total_negative_edge_weights+adj_graph.total_edge_weights-agreement,
         0,
         temp,
-        Instant::now() - start_time
+        (Instant::now() - start_time).as_millis()
     );
     let mut best_assigment = assigned.clone();
     let mut best_agreement = agreement.clone();
@@ -280,7 +280,7 @@ pub fn greedy_absolute_interval_contraction(
             }
         }
         println!(
-            "{}, {}, {}, {}, {},{}, {}, {:?}",
+            "{}, {}, {}, {}, {}, {}, {}, {:.3}",
             adj_graph.total_edge_weights,
             adj_graph.total_edge_weights-agreement,
             adj_graph.total_edge_weights-epoch_solution,
@@ -288,7 +288,7 @@ pub fn greedy_absolute_interval_contraction(
             -adj_graph.total_negative_edge_weights+adj_graph.total_edge_weights-agreement,
             last_improvement,
             temp,
-            Instant::now() - start_time
+            (Instant::now() - start_time).as_millis()
         );
         last_improvement+=1;
 

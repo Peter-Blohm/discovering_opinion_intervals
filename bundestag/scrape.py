@@ -5,7 +5,31 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from openpyxl import load_workbook
 import os
+import unicodedata
 
+GERMAN_LETTERS = "äöüÄÖÜß"
+
+def strip_non_german_accents(text: str) -> str:
+    """
+    Return *text* with all accents removed, except the German
+    umlauts (äöü / ÄÖÜ) and ß, which are kept unchanged.
+    """
+    if text is None:
+        return text               # keep NaNs / None unchanged
+
+    out = []
+    for ch in str(text):
+        if ch in GERMAN_LETTERS:        # keep German specials as-is
+            out.append(ch)
+        else:
+            # compatibility-decompose the code-point, then drop
+            # every combining mark (category "Mn")
+            decomp = unicodedata.normalize("NFKD", ch)
+            out.append("".join(
+                c for c in decomp if unicodedata.category(c) != "Mn"
+            ))
+    # NFC re-compose (tidies up e.g. "A\u030A" → "Å")
+    return unicodedata.normalize("NFC", "".join(out))
 # 1. Download the index page listing all Excel vote lists
 
 # 2. Find all XLSX links under the vote lists section
@@ -88,12 +112,12 @@ for filepath in files:
     df['ja/nein'] = df.apply(lambda row: 'ja' if row['ja'] == 1 else 'nein', axis=1)
 
     # keep only the needed columns
-    df = df[['Name', 'Vorname', 'Fraktion/Gruppe', 'ja/nein']].copy()
+    df = df[['Name', 'Vorname', 'Fraktion/Gruppe', 'ja/nein', 'Wahlperiode']].copy()
     # throw away the ambiguous disambiguation strings
     df['Name'] = df['Name'].map(lambda x: x.rsplit(' ',1)[0])
     df['Vorname'] = df['Vorname'].map(lambda x: x.rsplit(' ', 1)[0])
-
-    df['Bezeichnung'] = df['Name'] + ' ' + df['Vorname']
+    df['janein'] = df['ja/nein']
+    df['Bezeichnung'] = (df['Name'] + ' ' + df['Vorname']).apply(strip_non_german_accents)
     # add filename column
     df.insert(0, 'filename', os.path.basename(filepath))
 

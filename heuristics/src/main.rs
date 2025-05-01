@@ -32,7 +32,7 @@ fn main() {
 
     if algorithm == "gaic" {
 
-        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, &config, 50000);
+        let node_labels = greedy_absolute_interval_contraction(&signed_graph, &interval_structure, &config, seed as u64);
         let mut label_count:Vec<usize> = vec![0;interval_structure.intervals.len()];
         for &label in &node_labels {
             label_count[label] +=1;
