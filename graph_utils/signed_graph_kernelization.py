@@ -1,6 +1,6 @@
 import networkx as nx
 import os
-from graph_utils.signed_graph import SignedGraph, read_signed_graph
+from graph_utils.signed_graph import SignedGraph, read_signed_graph, save_graph_to_file
 
 def _find_pos_vertices(graph: SignedGraph):
     # returns a list of vertex ids which have no negative edges
@@ -201,18 +201,6 @@ def kernelize_for_fixed_intervals(graph: SignedGraph) -> SignedGraph:
         result_graph.remove_nodes_from(to_remove)
     
     return result_graph
-
-def save_graph_to_file(edges, name, output_dir):
-    """
-    Saves a single valid graph to a text file in the specified format.
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    filename = os.path.join(output_dir, f"{name}.txt")
-    with open(filename, "w") as f:
-        f.write("# FromNodeId\tToNodeId\tSign\n")
-        for u, v, sign in edges:
-            f.write(f"{u}\t{v}\t{sign}\n")
-    return filename
 
 if __name__ == "__main__":
     file = "data/wiki_L.txt"

@@ -2,11 +2,10 @@ import re
 import numpy as np
 import networkx as nx
 import os
-import h5py
 
 # from graph_utils.graph_embeddings.data.fast_gd_embedding import adjacency_matrix
 from graph_utils.signed_graph_heuristics import find_max_ratio_vertex
-from graph_utils.signed_graph import SignedGraph, read_signed_graph
+from graph_utils.signed_graph import SignedGraph, read_signed_graph, read_weighted_graph, save_graph_to_file, transform_weighted_graph_to_signed_graph
 from graph_utils.signed_graph_kernelization import kernelize_signed_graph
 
 
@@ -127,24 +126,50 @@ def gaec(G: SignedGraph, k = None):
 
 if __name__ == "__main__":
     #for file in os.listdir("data"):
-    data = f"/home/peter/tu/stefan_project/opinion_formation/data/soc-sign-Slashdot090221.txt"
+    data = "data/out.wikiconflict"
 
-    G = read_signed_graph(data)
+    print(f"Converting {data} to signed graph")
+    G_weighted = read_weighted_graph(data)
+    G = transform_weighted_graph_to_signed_graph(G_weighted)
 
-    print(f"Name: {data}")
-    print(f"Vertices: {G.number_of_nodes()}")
-    print(f"Edges: {G.number_of_edges()}")
-    print(f"Positive Edges: {G.G_plus.number_of_edges()}")
-    print(f"Negative edges {G.G_minus.number_of_edges()}")
 
-    # Kernelize the graph
-    graphs = kernelize_signed_graph(G, safe=True)
-    largest_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
-    G.G_plus = nx.relabel.convert_node_labels_to_integers(G.G_plus, first_label=1, ordering='default')
-    G.G_minus = nx.relabel.convert_node_labels_to_integers(G.G_minus, first_label=1, ordering='default')
-    gaec(G,5)
-    print(f"Number of vertices in largest connected component after 1 round of error free kernelization: {largest_graph.number_of_nodes()}")
-    print(f"Number of positives edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_plus.number_of_edges()}")
-    print(f"Number of negative edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_minus.number_of_edges()}")
+    # print(f"Name: {data}")
+    print(f"Pre Vertices: {len(G_weighted.nodes())}")
+    # print(f"Pre Edges: {len(G_weighted.edges())}")
+    # print(f"Pre Positive Edges: {sum(1 for u, v, data in G_weighted.edges(data=True) if data['weight'] > 0)}")
+    # print(f"Pre Negative Edges: {sum(1 for u, v, data in G_weighted.edges(data=True) if data['weight'] < 0)}")
+
+    # print(f"Vertices: {len(set(G.G_plus.nodes()).union(set(G.G_minus.nodes())))}")
+    # print(f"Max Node: {max(G.G_plus.nodes())}")
+    # # Count positive, negative, and zero edges
+    positive_edges = sum(1 for u, v, data in G.G_plus.edges(data=True))# if data['weight'] > 0)
+    negative_edges = sum(1 for u, v, data in G.G_minus.edges(data=True))# if data['weight'] < 0)
+    
+    print(f"Total Edges: {positive_edges + negative_edges}")
+    print(f"Positive Edges: {positive_edges}")
+    print(f"Negative Edges: {negative_edges}")
+
+    output_dir = "data"
+    name = "wikiconflict_processed"
+
+    save_graph_to_file(G, name, output_dir)
+
+    # G = read_signed_graph(data)
+
+    # print(f"Name: {data}")
+    # print(f"Vertices: {G.number_of_nodes()}")
+    # print(f"Edges: {G.number_of_edges()}")
+    # print(f"Positive Edges: {G.G_plus.number_of_edges()}")
+    # print(f"Negative edges {G.G_minus.number_of_edges()}")
+
+    # # Kernelize the graph
+    # graphs = kernelize_signed_graph(G, safe=True)
+    # largest_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
+    # G.G_plus = nx.relabel.convert_node_labels_to_integers(G.G_plus, first_label=1, ordering='default')
+    # G.G_minus = nx.relabel.convert_node_labels_to_integers(G.G_minus, first_label=1, ordering='default')
+    # gaec(G,5)
+    # print(f"Number of vertices in largest connected component after 1 round of error free kernelization: {largest_graph.number_of_nodes()}")
+    # print(f"Number of positives edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_plus.number_of_edges()}")
+    # print(f"Number of negative edges in largest connected component after 1 round of error free kernelization: {largest_graph.G_minus.number_of_edges()}")
 
     # print(f"chicken algorithm violated edges:{chicken_algorithm(G)}")
