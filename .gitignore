@@ -2,3 +2,5 @@
 *.pyc
 bundestag/graphs/*
 *.Rmd
+Datasets/*
+.vscode/settings.json

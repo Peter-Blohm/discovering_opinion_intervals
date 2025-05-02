@@ -81,7 +81,7 @@ def read_signed_graph(file: str) -> SignedGraph:
     with open(file, 'r') as file:
         for line in file:
             # Skip comment lines that start with '#'
-            if line.startswith('#') or line.startswith('%'):
+            if line.startswith('#') or line.startswith('%') or line.startswith('MULTICUT'):
                 continue
 
             # Split the line into FromNodeId, ToNodeId, and Sign

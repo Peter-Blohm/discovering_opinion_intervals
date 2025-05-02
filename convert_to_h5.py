@@ -116,7 +116,7 @@ if __name__ == "__main__":
     
     if args.type == 'signed' or args.type == 'both':
         G_signed = read_signed_graph(data_path)
-        signed_output = f"{output_base}.h5"
+        signed_output = f"{output_base}_signed.h5"
         write_signed_graph_to_hdf5(G_signed, signed_output, graph_name)
         print(f"Signed graph written to {signed_output}")
     
