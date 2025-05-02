@@ -10,7 +10,7 @@ mod gaic;
 
 use data_types::{SignedGraph, IntervalStructure};
 use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search, brute_force_interval_structure};
-use gaic::{greedy_absolute_interval_contraction};
+use gaic::greedy_absolute_interval_contraction;
 use crate::data_types::UsefulSignedGraph;
 use crate::gaic::GaicConfig;
 // TODO: Handle case where graph is not connected and few clusters are desired

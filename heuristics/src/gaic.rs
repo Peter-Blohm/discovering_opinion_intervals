@@ -5,29 +5,29 @@ use smallvec::SmallVec;
 use std::time::{Duration, Instant};
 use rand::rngs::StdRng;
 use serde::Deserialize;
-use fxhash::{FxHashMap, FxHasher};
+use fxhash::FxHasher;
 use std::hash::BuildHasherDefault;
 use rand::prelude::SliceRandom;
 
-type FxSet<T> = std::collections::HashSet<T, BuildHasherDefault<FxHasher>>;
+// type FxSet<T> = std::collections::HashSet<T, BuildHasherDefault<FxHasher>>;
 type FxMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FxHasher>>;
 type FxPQ<K, P> = PriorityQueue<K, P, BuildHasherDefault<FxHasher>>;
 
-#[derive(Clone)]
-pub struct SignedNeighbourhood {
-    //adjacency lists
-    pub positive_neighbors: FxSet<usize>,
-    pub negative_neighbors: FxSet<usize>,
-}
+// #[derive(Clone)]
+// pub struct SignedNeighbourhood {
+//     //adjacency lists
+//     pub positive_neighbors: FxSet<usize>,
+//     pub negative_neighbors: FxSet<usize>,
+// }
 
-impl SignedNeighbourhood {
-    pub fn new() -> Self {
-        SignedNeighbourhood {
-            positive_neighbors: FxSet::default(),
-            negative_neighbors: FxSet::default(),
-        }
-    }
-}
+// impl SignedNeighbourhood {
+//     pub fn new() -> Self {
+//         SignedNeighbourhood {
+//             positive_neighbors: FxSet::default(),
+//             negative_neighbors: FxSet::default(),
+//         }
+//     }
+// }
 
 #[derive(Clone)]
 pub struct WeightedNeighbourhood {
@@ -201,7 +201,7 @@ pub fn greedy_absolute_interval_contraction(
     let mut local_rng = StdRng::seed_from_u64(random_seed);
     // setup ////////////////////////////////////
     let num_vertices = signed_graph.num_vertices;
-    let edges = &signed_graph.edges;
+    // let edges = &signed_graph.edges;
     let num_intervals = interval_structure.intervals.len();
     let adj_graph = SignedAdjacencyList::new(&signed_graph.edges,num_vertices);
 

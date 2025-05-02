@@ -203,7 +203,7 @@ pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<us
                     }
                 }
                 
-                let new_violations = (best_violations + new_violations_delta);
+                let new_violations = best_violations + new_violations_delta;
                 
                 // Reservoir sampling with size 1
                 if new_violations < best_move_violations {
