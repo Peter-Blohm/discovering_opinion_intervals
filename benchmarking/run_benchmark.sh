@@ -1,14 +1,14 @@
 #!/bin/bash
 #run from repo root
 declare -a SEED
-GS=$(seq 1 10)
+GS=$(seq 1 50)
 
-THREADS=1
+THREADS=61
 SOLUTION_OUT_FOLDER="benchmarking/solutions"
 LOG_OUT_FOLDER="benchmarking/logs"
 CONFIG_FOLDER="benchmarking/configs/*"
 STRUCT_FOLDER="benchmarking/structs/*"
-INSTANCE_FOLDER="benchmarking/instances/*.json"
+INSTANCE_FOLDER="/Data/Interval_Development/Datasets/*.json"
 RUST_EXE="heuristics/target/release/heuristics"
 echo "instance, struct, config, seed, edge_weight,current, best_batch, best,best_plus_negative_edge_weight, epochs_since_restart, current_temp, runtime_ms"
 # Loop through each combination of parameters
@@ -27,10 +27,11 @@ do
         LOG_FILE=$(printf "%s/%s_%s_%s_%s.csv" "$LOG_OUT_FOLDER" "${INSTANCE##*/}" "${CONFIG##*/}" "${STRUCT##*/}" "$SEED")
 
         {
-          "$RUST_EXE" "$INSTANCE" "$STRUCT" "$CONFIG" "$SOLUTION_FILE" gaic --seed "$SEED" > "$LOG_FILE" ; echo "${INSTANCE##*/}" "${CONFIG##*/}" "${STRUCT##*/}" "$(tail $LOG_FILE -n 1)"
+          "$RUST_EXE" "$INSTANCE" "$STRUCT" "$CONFIG" "$SOLUTION_FILE" gaic --seed "$SEED" > "$LOG_FILE" 2>/dev/null ; echo "${INSTANCE##*/}", "${CONFIG##*/}", "${STRUCT##*/}", "$SEED", "$(tail $LOG_FILE -n 1)"
         } &
         # Wait for the maximum number of parallel jobs to be reached
         while [ "$(jobs | wc -l)" -ge $THREADS ]; do
+          # echo "Waiting for jobs to finish..."
           sleep 1
         done
       done

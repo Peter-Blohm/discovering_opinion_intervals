@@ -4,3 +4,5 @@ bundestag/graphs/*
 *.Rmd
 Datasets/*
 .vscode/settings.json
+benchmarking/logs
+benchmarking/solutions
