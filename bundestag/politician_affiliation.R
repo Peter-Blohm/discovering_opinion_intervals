@@ -64,8 +64,8 @@ sym_graph <- unique(rbind(graph,graph %>% mutate(from2=to,to=from, from=from2,fr
 cluster_assignments_force <- cluster_assignments %>% left_join(sym_graph, by=c("ID"="from")) %>%
     mutate(cluster = cluster.x, cluster.x=NULL) %>%
     group_by(ID,cluster) %>%
-    summarise(net_attraction = sum(cluster_attraction*ifelse(cluster.y>=cluster+1,1,ifelse(cluster.y<=cluster,-1,0)))/2/sum(edges),
-              tanh_attraction = tanh(1*net_attraction))
+    summarise(net_attraction = sum(cluster_attraction*ifelse(cluster.y>cluster+1,1/(cluster.y-cluster),ifelse(cluster.y<cluster,1/(cluster.y-cluster),0)))/2/sum(edges),
+              tanh_attraction = tanh(2*net_attraction))
 
 
 affilliation <- affilliations %>%
@@ -115,9 +115,10 @@ ggplot(affilliation %>% filter(fraktion != "fraktionslos"),aes(x=cluster+tanh_at
             inherit.aes = FALSE, alpha = 0.0,
             fill  = "grey75",        # choose any fill / alpha you like
             colour = "grey75")+geom_violin(alpha=0.3) +
-geom_point(shape=21,color="black",position = position_jitternormal(sd_x = 0.0, sd_y = 0.08), alpha=0.5) +
+geom_point(shape=21,color="black",position = position_jitternormal(sd_x = 0.02, sd_y = 0.1), alpha=0.5) +
     scale_color_manual(values=c("#BE3075", "#409A3C", "#E3000F", "#FFED00", "#151518", "#009EE0")) +
-    scale_fill_manual(values=c("#BE3075", "#409A3C", "#E3000F", "#FFED00", "#151518", "#009EE0")) + theme
+    scale_fill_manual(values=c("#BE3075", "#409A3C", "#E3000F", "#FFED00", "#151518", "#009EE0")) + theme +
+    labs(x="Assigned Cluster",y="Party Affiliation")
 striped_bands <- function(centres      = 0:7,     # x positions to centre on
                           band_width   = 1.4,     # total width of each rectangle
                           start_angle  = -45) {   # angle for the first stripe
