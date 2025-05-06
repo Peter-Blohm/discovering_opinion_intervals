@@ -13,11 +13,32 @@ raw_summary_data <-  read.csv("summary.csv") %>%
            struct=NULL) %>%
     filter(num_clusters == 8)
 
+
 # TODO pivot
+library(kable_extra)
+
+myformat <- function(x) format(round(x),big.mark="\\\\,",trim= TRUE)
+
 raw_summary_data %>% group_by(instance,type,algorithm) %>%
     summarise(best_solution = min(best),
               avg_solution=mean(best),
               standard_dev = sd(best)) %>%
+    pivot_wider(names_from=algorithm,values_from=c(best_solution,avg_solution,standard_dev)) %>%
+    ungroup() %>%
+    transmute(dataset=instance,structure=type,gaia_best=best_solution_gaia,gaia_avg=paste(myformat(avg_solution_gaia),"p",myformat(standard_dev_gaia)),
+              venus_best=best_solution_venus,venus_avg=paste(myformat(avg_solution_venus),"p",myformat(standard_dev_venus))) %>%
+    kable(format    = "latex",
+          booktabs  = TRUE,
+          escape    = FALSE,
+          format.args = list(big.mark = "\\\\,"),
+          col.names = c("dataset", "structure", "best",   "avg", "best",   "avg"),
+          align     = c("l","l", "r", "D{p}{\\pm}{6.4}", "r", "D{p}{\\pm}{6.4}"))%>%
+    collapse_rows(columns = 1, row_group_label_position= "identity", latex_hline              = "none") %>%
+    add_header_above(c(" " = 2, "Gaia" = 2, "Venus" = 2)) %>%
+    kable_styling(latex_options = c("hold_position")) %>%
+    as.character() %>%
+    cat(sep = "\n")
+
     print(n=32)
 
 
