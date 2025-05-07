@@ -6,3 +6,9 @@ Datasets/*
 .vscode/settings.json
 benchmarking/logs
 benchmarking/solutions
+benchmarking/tmp
+benchmarking/synthetic_logs
+benchmarking/solutions
+benchmarking/synthetic_solutions
+benchmarking/Synthetic_Dataset_Solutions
+benchmarking/Synthetic_Datasets
