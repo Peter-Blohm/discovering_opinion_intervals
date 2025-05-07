@@ -71,54 +71,64 @@ def calculate_disagreement(graph, intervals, n_per_int):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate synthetic interval graphs')
     parser.add_argument('--output_dir', type=str, default=".", help='Directory to save the output files')
-    parser.add_argument('--n_per_int', type=int, default=100, help='Number of nodes per interval')
-    parser.add_argument('--m_frac', type=float, default=1.0, help='Fraction of edges to include (0.0 to 1.0)')
-    parser.add_argument('--p', type=float, default=1.0, help='Probability parameter for edge sign (0.0 to 1.0)')
+    # parser.add_argument('--n_per_int', type=int, default=100, help='Number of nodes per interval')
+    # parser.add_argument('--m_frac', type=float, default=1.0, help='Fraction of edges to include (0.0 to 1.0)')
+    # parser.add_argument('--p', type=float, default=1.0, help='Probability parameter for edge sign (0.0 to 1.0)')
     parser.add_argument('--seed', type=int, default=None, help='Random seed (default: random)')
     args = parser.parse_args()
-    
+
     output_dir = args.output_dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
-    # Use command line arguments with their defaults
-    n_per_int = args.n_per_int
-    m_frac = args.m_frac
-    p = args.p
-    seed = args.seed if args.seed is not None else int(time.time())
-    
-    try:
-        with open("intervals.json", "r") as f:
-            intervals_data = json.load(f)
-            intervals = intervals_data["intervals"]
-    except FileNotFoundError:
-        assert False, "intervals.json file not found. Please provide a valid file."
+    p_vals = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    m_frac_vals = [0.2, 0.4, 0.6, 0.8, 1.0]
+    n_per_int_vals = [100]
 
-    print(f"Generating synthetic graph with parameters:")
-    print(f"  - n_per_int: {n_per_int}")
-    print(f"  - m_frac: {m_frac}")
-    print(f"  - p: {p}")
-    print(f"  - seed: {seed}")
-    
-    signed_graph = generate_synthetic_graph(intervals, n_per_int, m_frac, p, seed)
-    
-    # Calculate disagreement for standard assignment
-    disagreement = calculate_disagreement(signed_graph, intervals, n_per_int)
-    print(f"Disagreement for standard assignment: {disagreement}")
-    
-    # Include disagreement in filename
-    output_filename = os.path.join(output_dir, f"synthetic_graph_disagreement_{disagreement}.json")
-    
-    # Save the graph
-    write_signed_graph_to_json(signed_graph, output_filename)
-    print(f"Graph generated and saved to {output_filename}")
-    
-    # Also save standard assignment for reference
-    standard_assignment = {}
-    for node in range(len(signed_graph.G_plus.nodes)):
-        standard_assignment[str(node)] = node // n_per_int
-    
-    assignment_filename = os.path.join(output_dir, f"standard_assignment_disagreement_{disagreement}.json")
-    with open(assignment_filename, 'w') as f:
-        json.dump(standard_assignment, f, indent=2)
-    print(f"Standard assignment saved to {assignment_filename}")
+
+    # Use command line arguments with their defaults
+    # n_per_int = args.n_per_int
+    # m_frac = args.m_frac
+    # p = args.p
+
+    for n_per_int in n_per_int_vals:
+        for m_frac in m_frac_vals:
+            for p in p_vals:
+
+                seed = args.seed if args.seed is not None else int(time.time())
+                
+                try:
+                    with open("intervals.json", "r") as f:
+                        intervals_data = json.load(f)
+                        intervals = intervals_data["intervals"]
+                except FileNotFoundError:
+                    assert False, "intervals.json file not found. Please provide a valid file."
+
+                print(f"Generating synthetic graph with parameters:")
+                print(f"  - n_per_int: {n_per_int}")
+                print(f"  - m_frac: {m_frac}")
+                print(f"  - p: {p}")
+                print(f"  - seed: {seed}")
+                
+                signed_graph = generate_synthetic_graph(intervals, n_per_int, m_frac, p, seed)
+                
+                # Calculate disagreement for standard assignment
+                disagreement = calculate_disagreement(signed_graph, intervals, n_per_int)
+                print(f"Disagreement for standard assignment: {disagreement}")
+                
+                # Include disagreement in filename
+                output_filename = os.path.join(output_dir, f"synthetic_graph_n-per-int_{n_per_int}_m-frac_{m_frac}_p_{p}_disagreement_{disagreement}.json")
+                
+                # Save the graph
+                write_signed_graph_to_json(signed_graph, output_filename)
+                print(f"Graph generated and saved to {output_filename}")
+                
+                # Also save standard assignment for reference
+                standard_assignment = {}
+                for node in range(len(signed_graph.G_plus.nodes)):
+                    standard_assignment[str(node)] = node // n_per_int
+                
+                assignment_filename = os.path.join(output_dir, f"standard_assignment_n-per-int_{n_per_int}_m-frac_{m_frac}_p_{p}_disagreement_{disagreement}.json")
+                with open(assignment_filename, 'w') as f:
+                    json.dump(standard_assignment, f, indent=2)
+                print(f"Standard assignment saved to {assignment_filename}")
