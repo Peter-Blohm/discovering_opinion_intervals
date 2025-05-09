@@ -7,9 +7,7 @@ This repository contains the implementation and evaluation code for the paper "D
 ### Install Rust
 
 Our main heuristic are implemented in the Rust programming language.  
-To install Rust, follow the instructions on this website: 
-
-[https://rustup.rs/](https://rustup.rs/).
+To install Rust, follow the instructions on [https://rustup.rs/](https://rustup.rs/).
 
 ### Setup Conda Environment
 
