@@ -6,8 +6,10 @@ This repository contains the implementation and evaluation code for the paper "D
 
 ### Install Rust
 
-Our main heuristics code is implemented in the Rust programming language.  
-To install Rust, follow the instructions on this website: [https://rustup.rs/](https://rustup.rs/).
+Our main heuristic are implemented in the Rust programming language.  
+To install Rust, follow the instructions on this website: 
+
+[https://rustup.rs/](https://rustup.rs/).
 
 ### Setup Conda Environment
 
@@ -29,8 +31,10 @@ This MIP program can solve the problem optimally for small graphs.
 To run the code, gurobi needs to be installed.  
 
 The python package `gurobipy` is included in the python environment.
-However, to run the code, you also need a Gurobi license. A free academic license can be obtained from the [Gurobi website](https://www.gurobi.com/).
-To set up the license locally, follow the steps on this website: [https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer).
+However, to run the code, you also need a Gurobi license. (A free academic license can be obtained on [https://www.gurobi.com/](https://www.gurobi.com/).)
+To set up the license locally, follow the steps on this website:  
+
+[https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer).
 
 
 ## Repository Structure
