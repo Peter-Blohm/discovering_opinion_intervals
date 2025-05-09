@@ -3,28 +3,21 @@ import os
 from graph_utils.signed_graph import SignedGraph, read_signed_graph, save_graph_to_file
 
 def _find_pos_vertices(graph: SignedGraph):
-    # returns a list of vertex ids which have no negative edges
     return [node for node, degree in graph.G_minus.degree() if degree == 0]
 
 
 def _find_2mix_vertices(graph: SignedGraph):
-    # returns a list of vertex ids have exactly one positive and one negative edge
     plus_nodes = [node for node, degree in graph.G_plus.degree() if degree == 1]
     minus_nodes = [node for node, degree in graph.G_minus.degree() if degree == 1]
     return [node for node in plus_nodes if node in minus_nodes]
 
 
 def _find_plus_connected_components(graph: SignedGraph):
-    # takes a graph object and attempts to separate positive clusters, i.e.
-
     connected_components = list(nx.connected_components(graph.G_plus))
 
-    # List to hold the subgraphs induced by the connected components
     induced_subgraphs = []
 
-    # For each connected component, induce a subgraph with both positive and negative edges
     for component in connected_components:
-        # Create the subgraph induced by the component nodes in the original graph
         induced_subgraph = graph.subgraph(component).copy()
         induced_subgraphs.append(induced_subgraph)
 
@@ -45,15 +38,9 @@ def _delete_2mix_vertices(graph: SignedGraph):
     return new_graph
 
 def _find_one_seperated_components(graph: SignedGraph):
-    # Find graph components that are separated by a single vertex
-    # i.e. a vertex whose removal would disconnect the graph
-    # both on the positive and negative edges
-    # returns a list of subgraphs
-
     new_components = []
 
     signed_graph = graph
-    print("Number of nodes", signed_graph.number_of_nodes())
 
     combined_graph = nx.Graph()
     combined_graph.add_edges_from(signed_graph.G_plus.edges())
@@ -63,36 +50,27 @@ def _find_one_seperated_components(graph: SignedGraph):
 
     for node in combined_graph.nodes():
         edges = list(combined_graph.edges(node))
-        print(node)
-
-        # remove all the edges
         combined_graph.remove_edges_from(edges)
 
         connected_components = list(nx.connected_components(combined_graph))
 
         print("Num connected components", len(connected_components))
 
-        # Create a combined graph of positive and negative edges
         if len(connected_components) >= 3:
-            # Get the connected components as sets of nodes
             conn_components = connected_components
             
-            # Convert each component to a SignedGraph and add to results
             for component_nodes in conn_components:
                 component = signed_graph.subgraph(component_nodes)
                 new_components.append(component)
                 split = True
             break
 
-        # add the edges back
         combined_graph.add_edges_from(edges)
     
     if not split:
         new_components.append(signed_graph)
         
     return new_components
-
-#endregion
 
 def kernelize_signed_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
     """
@@ -157,7 +135,7 @@ def kernelize_for_fixed_intervals(graph: SignedGraph) -> SignedGraph:
     return result_graph
 
 if __name__ == "__main__":
-    file = "data/wiki_L.txt"
+    file = "data/bundestag_signed_graph_all_periods.txt"
 
     graph = read_signed_graph(file)
 

@@ -77,14 +77,11 @@ def save_graph_to_file(graph: SignedGraph, name, output_dir):
 def read_signed_graph(file: str) -> SignedGraph:
     G = SignedGraph(nx.Graph(), nx.Graph())
 
-    # Open the file and read the content
     with open(file, 'r') as file:
         for line in file:
-            # Skip comment lines that start with '#'
             if line.startswith('#') or line.startswith('%') or line.startswith('MULTICUT'):
                 continue
 
-            # Split the line into FromNodeId, ToNodeId, and Sign
             parts = re.split(r'[,#;\t ]+', line.strip())
             if len(parts) >= 3:
                 from_node = int(parts[0])
@@ -93,25 +90,20 @@ def read_signed_graph(file: str) -> SignedGraph:
                 if from_node == to_node:
                     continue
                 from_node, to_node = (from_node, to_node) if from_node < to_node else (to_node, from_node)
-                # If either existing edge or new edge has a negative sign, set it to -1
                 if G.has_minus_edge(from_node, to_node) or sign == -1:
                     G.add_minus_edge(from_node, to_node)
                 else:
-                    # Add the edge with the sign as an attribute
                     G.add_plus_edge(from_node, to_node)
     return G
 
 def read_weighted_graph(file: str) -> nx.Graph:
     G = nx.Graph()
 
-    # Open the file and read the content
     with open(file, 'r') as file:
         for line in file:
-            # Skip comment lines that start with '#'
             if line.startswith('#') or line.startswith('%'):
                 continue
 
-            # Split the line into FromNodeId, ToNodeId, and Sign
             parts = re.split(r'[,#;\t ]+', line.strip())
             if len(parts) >= 3:
                 from_node = int(parts[0])
