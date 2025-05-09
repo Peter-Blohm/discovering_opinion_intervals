@@ -43,17 +43,21 @@ The repository is organized as follows:
   - `data/`: Sample input files for algorithm configurations and interval structures
 - **`data/`**: Contains the bundestag dataset and is used as a working directory for other datasets.
 - **`graph_utils/`**: Python utilities for working with signed graphs, including:
+  - `convert_to_json.py`: Sctipt to Convert signed graphs from general txt format to JSON format required by the Rust implementation of our algorithms
+  - `generate_synthetic_interval_graph.py`: Script to generate synthetic signed graphs from a given interval structure 
+  - `signed_graph.py`: Class for signed graphs
   - `solve_embedding.py`: MIP formulation for optimal solutions on small graphs (requires Gurobi)
-  - `signed_graph.py`: Python class for signed graphs
   - `signed_graph_kernelization.py`: Tools for kernelization of signed graphs w.r.t. the opinion interval discovery problem
-- **`bundestag/`**: Code for creating signed graphs from German Bundestag voting data:
-  - `create_bundestag_graph.py`: Generates signed graphs from voting data
-  - `scrape.py`: Tools for collecting data
-  - `all_votes.csv`: Dataset of voting records
-- **`benchmarking/`**: Scripts and configurations for performance evaluation:
-  - `run_benchmark.sh`: Shell script for running benchmarks
-  - `configs/`: Configuration files for benchmarks
-  - `structs/`: Data structures used in benchmarking
+- **`bundestag/`**: Contains code and files related to the scraping and generation of the 'Bundestag' dataset
+  - `all_votes.csv`: File containing all voting data in the German Bundestag
+  - `scrape.py`: Script to scrape the voting data from the Bundestag website
+  - `generate_bundestag_graph.py`: Script to generate the signed graph from the voting data based on co-voting behavior
+- **`benchmarking`**: Contains code for benchmarking the heuristics
+  - `run_benchmark.sh`: Bash script to benchmark all heuristics on all interval structures on all datasets for multiple seeds
+  - `summary.csv`: Summary of the benchmark results - Each line represents the final output of a single run of a specific heuristic configuration on a single dataset with a single seed and a single interval structure
+  - `configs/`: Contains the configuration files for the heuristics
+  - `structs/`: Contains the interval structures used for benchmarking
+  
 
 
 ## Usage

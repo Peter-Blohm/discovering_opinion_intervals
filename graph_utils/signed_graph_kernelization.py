@@ -163,6 +163,32 @@ def kernelize_for_fixed_intervals(graph: SignedGraph) -> SignedGraph:
     
     return result_graph
 
+def chicken_algorithm(G: SignedGraph):
+    """
+    Greedily pecks at the graph kernels, deleting the "best ratio" vertex at each time-step, producing more kernels
+    :param G:
+    :return:
+    """
+    graphs = kernelize_signed_graph(G)
+    if len(graphs) == 0:
+        return 0
+    vio = 0
+    for graph in graphs:
+        ratio_sum = 0
+        its = min(1000, graph.G_plus.number_of_nodes()-1)
+        for i in range(its):
+            vertex, ratio, violations = find_max_ratio_vertex(graph)
+            try:
+                graph.remove_node(vertex)
+            except Exception as e:
+                print(e)
+                break
+            vio += violations
+            ratio_sum += ratio
+        vio += chicken_algorithm(graph)
+
+    return vio
+
 if __name__ == "__main__":
     file = "data/bundestag_signed_graph_all_periods.txt"
 

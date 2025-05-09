@@ -10,16 +10,12 @@ import unicodedata
 GERMAN_LETTERS = "äöüÄÖÜß"
 
 def strip_non_german_accents(text: str) -> str:
-    """
-    Return *text* with all accents removed, except the German
-    umlauts (äöü / ÄÖÜ) and ß, which are kept unchanged.
-    """
     if text is None:
-        return text               # keep NaNs / None unchanged
+        return text
 
     out = []
     for ch in str(text):
-        if ch in GERMAN_LETTERS:        # keep German specials as-is
+        if ch in GERMAN_LETTERS:
             out.append(ch)
         else:
             # compatibility-decompose the code-point, then drop
@@ -30,9 +26,7 @@ def strip_non_german_accents(text: str) -> str:
             ))
     # NFC re-compose (tidies up e.g. "A\u030A" → "Å")
     return unicodedata.normalize("NFC", "".join(out))
-# 1. Download the index page listing all Excel vote lists
 
-# 2. Find all XLSX links under the vote lists section
 links = []
 ljnks =[1]
 count = 0
@@ -50,10 +44,8 @@ while len(ljnks) > 0:
 
     links.extend(ljnks)
 
-# 3. Create a folder to store downloaded files
 os.makedirs('abstimmungen_xlsx', exist_ok=True)
 
-# 4. Parse each Excel file
 all_votes = []
 prayers = 0
 for link in links:
@@ -61,39 +53,33 @@ for link in links:
     print(link,prayers)
     prayers = prayers + 1
     filename = os.path.join('abstimmungen_xlsx', os.path.basename(link))
-    # Download the file if not already present
+
     if not os.path.exists(filename):
         file_resp = requests.get(link)
         with open(filename, 'wb') as f:
             f.write(file_resp.content)
 
-    # Load workbook and extract metadata from cell A1
     wb = load_workbook(filename, read_only=True)
     ws = wb.active
-    title = ws['A1'].value  # e.g., "Abstimmung am 12.03.2024 – Drucksache 20/1234 – Abstimmung über XYZ"
-    # Parse date and subject
+    title = ws['A1'].value
     parts = title.split('–')
     date_str = parts[0].replace('Abstimmung am', '').strip()
     subject = parts[-1].replace('Abstimmung über', '').strip()
 
-    # Read the vote table (header row often starts at row 3)
     df = pd.read_excel(filename, header=2, usecols=["Name", "Stimme"], engine='openpyxl')
     df['vote_date'] = pd.to_datetime(date_str, dayfirst=True)
     df['vote_subject'] = subject
     all_votes.append(df)
 
-# 5. Concatenate all votes and export to a single Excel file
 result_df = pd.concat(all_votes, ignore_index=True)
 result_df.to_excel('all_namentliche_abstimmungen.xlsx', index=False)
 
-# Provide feedback
 print(f"Downloaded and compiled {len(result_df)} vote records into 'all_namentliche_abstimmungen.xlsx'")
 
 import pandas as pd
 import glob
 import os
 
-# folder containing your Excel files
 folder = "abstimmungen_xlsx"
 
 # pattern to match both .xls and .xlsx
@@ -105,24 +91,21 @@ for filepath in files:
     # read Excel
     df = pd.read_excel(filepath, dtype={'ja': int, 'nein': int})
 
-    # filter out rows where both ja and nein are zero
     df = df[(df['ja'] == 1) | (df['nein'] == 1)]
 
-    # map to a single column
     df['ja/nein'] = df.apply(lambda row: 'ja' if row['ja'] == 1 else 'nein', axis=1)
 
-    # keep only the needed columns
     df = df[['Name', 'Vorname', 'Fraktion/Gruppe', 'ja/nein', 'Wahlperiode']].copy()
-    # throw away the ambiguous disambiguation strings
+    
     df['Name'] = df['Name'].map(lambda x: x.rsplit(' ',1)[0])
     df['Vorname'] = df['Vorname'].map(lambda x: x.rsplit(' ', 1)[0])
     df['janein'] = df['ja/nein']
     df['Bezeichnung'] = (df['Name'] + ' ' + df['Vorname']).apply(strip_non_german_accents)
-    # add filename column
+
     df.insert(0, 'filename', os.path.basename(filepath))
 
     all_dfs.append(df)
 
 # concatenate all and write out
 result = pd.concat(all_dfs, ignore_index=True)
-result.to_csv("all_votes_name_firstname.csv", index=False)
+result.to_csv("all_votes.csv", index=False)
