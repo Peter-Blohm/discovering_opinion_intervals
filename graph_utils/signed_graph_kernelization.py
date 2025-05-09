@@ -44,52 +44,6 @@ def _delete_2mix_vertices(graph: SignedGraph):
     new_graph.remove_nodes_from(pos_vertices)
     return new_graph
 
-#region Old code
-
-# def _find_one_seperated_components(graph: SignedGraph):
-#     # Find graph components that are separated by a single vertex
-#     # i.e. a vertex whose removal would disconnect the graph
-#     # both on the positive and negative edges
-#     # returns a list of subgraphs
-
-#     components = [graph]
-#     new_components = []
-
-#     while True:
-#         print("Len Components", len(components))
-#         if len(components) == 0:
-#             break
-#         signed_graph = components.pop()
-#         print("Number of nodes", signed_graph.number_of_nodes())
-
-#         combined_graph = nx.Graph()
-#         combined_graph.add_edges_from(signed_graph.G_plus.edges())
-#         combined_graph.add_edges_from(signed_graph.G_minus.edges())
-
-#         split = False
-
-#         for node in combined_graph.nodes():
-
-#             temp_combined_graph = combined_graph.copy()
-#             temp_combined_graph.remove_node(node)        
-#             # Create a combined graph of positive and negative edges
-            
-#             if not nx.is_connected(temp_combined_graph):
-#                 # Get the connected components as sets of nodes
-#                 conn_components = list(nx.connected_components(temp_combined_graph))
-                
-#                 # Convert each component to a SignedGraph and add to results
-#                 for component_nodes in conn_components:
-#                     component = signed_graph.subgraph(component_nodes)
-#                     components.append(kernelize_graph(component))
-#                     split = True
-#                 break
-        
-#         if not split:
-#             new_components.append(signed_graph)
-        
-#     return new_components
-
 def _find_one_seperated_components(graph: SignedGraph):
     # Find graph components that are separated by a single vertex
     # i.e. a vertex whose removal would disconnect the graph

@@ -3,7 +3,7 @@ import networkx as nx
 from graph_utils.signed_graph import SignedGraph
 
 
-def find_max_ratio_vertex(graph: SignedGraph, sign=0) -> (int, float, int):
+def find_max_ratio_vertex(graph: SignedGraph, sign=0) -> tuple[int, float, int]:
     """
     returns index of vertex which has the highest imbalance in edge-signs
     :param graph: input graph

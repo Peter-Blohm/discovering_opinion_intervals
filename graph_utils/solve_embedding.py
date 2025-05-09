@@ -1,11 +1,6 @@
 import gurobipy as gp
 from gurobipy import GRB
 from numpy.random import permutation
-#from torch.cuda import graph
-
-from graph_utils.graph_embeddings.data.fast_gd_embedding import central_initial_solution, \
-    optimize_via_gd_but_like_faster
-from graph_utils.graphics.draw_embedding import get_cycle_positions
 from graph_utils.signed_graph import SignedGraph, read_signed_graph
 from graph_utils.signed_graph_kernelization import kernelize_signed_graph
 
@@ -135,7 +130,7 @@ if __name__ == "__main__":
 
     graphs = kernelize_signed_graph(graph, safe=True)
 
-    #embeddable, start, end = check_embeddability(file, None)
+    embeddable, start, end = check_embeddability(file, None)
     
     #print(embeddable)
 
@@ -151,51 +146,3 @@ if __name__ == "__main__":
     else:
         target_file_path = os.path.join(bad_dir, os.path.basename(file)).replace(".txt", ".png")
         draw_edges = "missing"
-
-    pos = get_cycle_positions(graph.G_plus.nodes)
-
-    # Plot the initial intervals
-    # plot_combined_graph_and_intervals(graph, start, end, target_file_path, pos=pos, draw_edges=draw_edges, show=True)
-        
-    # print(start)
-    # print(permutation)
-
-    # Count and print violations for the primitive interval construction.
-    # prim_pos_v, prim_neg_v, prim_vertex_v, prim_total_v = count_primitive_violations(permutation, graph)
-    # print(f"Primitive Violations: Total = {prim_total_v}, "
-    #       f"Positive edges = {prim_pos_v}, Negative edges = {prim_neg_v}, Vertex = {prim_vertex_v}")
-
-    print(len(graphs))
-
-    for subgraph in graphs:
-
-        for _ in range(1000):
-
-            permutation = np.random.permutation(subgraph.G_plus.nodes)
-            #starts, targets = permutation_initial_solution(subgraph,permutation)
-            starts, targets = central_initial_solution(subgraph,1)
-            
-            optimize_via_gd_but_like_faster(starts, targets, subgraph, lr=0.1, iterations=100, verbose_iterations=5, step_size=20, gamma=0.9)
-            
-            # Slashdot
-            # optimize_via_gd_but_like_faster(starts, targets, subgraph, lr=0.1, iterations=500, verbose_iterations=10, step_size=20, gamma=0.9)
-            # Iteration 90: Loss = 349065408.0, Violations = 47857
-
-
-            # Bitcoin
-            # optimize_via_gd_but_like_faster(starts, targets, subgraph, lr=0.1, iterations=500, verbose_iterations=10, step_size=20, gamma=0.9)
-            # Iteration 490: Loss = 610466.125, Violations = 824
-
-            # Epinions
-            # optimize_via_gd_but_like_faster(starts, targets, subgraph, lr=0.1, iterations=500, verbose_iterations=10, step_size=20, gamma=0.9)
-            # Iteration 160: Loss = 221235312.0, Violations = 38767
-
-            # Now optimize using gradient descent
-            # gd_start, gd_end = optimize_via_gd(np.array(permutation), graph, lr=0.1, iterations=100, k=1)
-
-            # pos_v, neg_v, vertex_v, total_v = count_violations(gd_start, gd_end, graph, permutation)
-            # print(f"Violations: {total_v} total, with {pos_v} positive edge violations, {neg_v} negative edge violations, and {vertex_v} vertex interval violations.")
-
-            # Plot the GD–optimized intervals
-            # plot_combined_graph_and_intervals(graph, list(starts.detach().numpy()), list(targets.detach().numpy()), target_file_path, pos=pos, draw_edges=draw_edges, show=True)
-        
