@@ -1,6 +1,6 @@
 import json
 import argparse
-from graph_utils.signed_graph import read_signed_graph, SignedGraph, read_weighted_graph
+from signed_graph import read_signed_graph, SignedGraph, read_weighted_graph
 import networkx as nx
 
 

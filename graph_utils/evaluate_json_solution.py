@@ -1,5 +1,5 @@
 import json
-from graph_utils.signed_graph import read_signed_graph
+from signed_graph import read_signed_graph
 
 
 def read_labels_from_json(json_path):

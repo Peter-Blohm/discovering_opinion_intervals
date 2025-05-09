@@ -2,9 +2,8 @@ import re
 import numpy as np
 import networkx as nx
 
-from graph_utils.signed_graph_heuristics import find_max_ratio_vertex
-from graph_utils.signed_graph import SignedGraph, read_weighted_graph, save_graph_to_file, transform_weighted_graph_to_signed_graph
-from graph_utils.signed_graph_kernelization import kernelize_signed_graph
+from signed_graph import SignedGraph, read_weighted_graph, save_graph_to_file, transform_weighted_graph_to_signed_graph
+from signed_graph_kernelization import kernelize_signed_graph, find_max_ratio_vertex
 
 def read_graph(file):
     G = nx.Graph()

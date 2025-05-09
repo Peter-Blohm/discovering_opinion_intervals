@@ -4,12 +4,12 @@ This repository contains the implementation and evaluation code for the paper "D
 
 ## Installation Instructions
 
-### Install Rust
+### Rust Installation
 
 Our main heuristic are implemented in the Rust programming language.  
 To install Rust, follow the instructions on [https://rustup.rs/](https://rustup.rs/).
 
-### Setup Conda Environment
+### Conda Environment Setup 
 
 Our utility functions, including the bundestag graph mining code and code for graph conversion and creation, are implemented in Python.  
 To manage the dependencies, we use Conda. For setting up the Conda environment, please follow these steps:
@@ -22,7 +22,7 @@ To manage the dependencies, we use Conda. For setting up the Conda environment, 
 conda env create -f environment.yml
 ```
 
-### Install Gurobi
+### Gurobi Installation
 
 In `graph_utils/solve_embedding.py`, we include a Mixed-Integer Programming (MIP) formulation for the problem.
 This MIP program can solve the problem optimally for small graphs.
@@ -34,7 +34,26 @@ To set up the license locally, follow the steps on this website:
 
 [https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer).
 
-
 ## Repository Structure
+
+The repository is organized as follows:
+
+- **`heuristics/`**: Contains the Rust implementation of our main heuristics for the opinion interval discovery problem.
+  - `src/`: Source code for the heuristics
+  - `data/`: Sample input files for algorithm configurations and interval structures
+- **`data/`**: Contains the bundestag dataset and is used as a working directory for other datasets.
+- **`graph_utils/`**: Python utilities for working with signed graphs, including:
+  - `solve_embedding.py`: MIP formulation for optimal solutions on small graphs (requires Gurobi)
+  - `signed_graph.py`: Python class for signed graphs
+  - `signed_graph_kernelization.py`: Tools for kernelization of signed graphs w.r.t. the opinion interval discovery problem
+- **`bundestag/`**: Code for creating signed graphs from German Bundestag voting data:
+  - `create_bundestag_graph.py`: Generates signed graphs from voting data
+  - `scrape.py`: Tools for collecting data
+  - `all_votes.csv`: Dataset of voting records
+- **`benchmarking/`**: Scripts and configurations for performance evaluation:
+  - `run_benchmark.sh`: Shell script for running benchmarks
+  - `configs/`: Configuration files for benchmarks
+  - `structs/`: Data structures used in benchmarking
+
 
 ## Usage

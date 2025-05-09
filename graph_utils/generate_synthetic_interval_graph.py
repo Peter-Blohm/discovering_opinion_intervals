@@ -1,5 +1,5 @@
 import random
-from graph_utils.signed_graph import SignedGraph
+from signed_graph import SignedGraph
 import networkx as nx
 from convert_to_json import write_signed_graph_to_json
 import json
