@@ -58,6 +58,53 @@ The repository is organized as follows:
   - `configs/`: Contains the configuration files for the heuristics
   - `structs/`: Contains the interval structures used for benchmarking
   
-
-
 ## Usage
+
+### Heuristic Algorithms
+
+To run the heuristic algorithms, the Rust code needs to be compiled first.
+To compile the Rust code, navigate to the `heuristics/` directory and run the following command:
+
+```bash
+cargo build --release
+```
+
+This will create an executable file in the `target/release/` directory.
+To run the heuristic algorithms, the following command can be used from the root directory of the repository:
+
+```bash
+./heuristics/target/release/heuristics <instance_file> <interval_structure_file> <config_file> <output_file> gaic --seed <seed>
+```
+
+Where:
+- `<instance_file>`: Path to the input file containing the signed graph
+- `<interval_structure_file>`: Path to the file containing the interval structure
+- `<config_file>`: Path to the configuration file for the heuristic
+- `<output_file>`: Path to the output file where the results will be saved
+
+For example, to run the heuristic on the bundestag dataset with a 8 consequtively overlapping intervals and a simulated annealing configuration, you can use the following command:
+
+```bash
+./heuristics/target/release/heuristics data/bundestag_signed.json benchmarking/structs/intervals8.json benchmarking/configs/config_venus_chunks_10.json data/bundestag_signed_solution.json gaic --seed 42
+```
+
+### Utilities
+
+**Convert Graph to Json:**
+To convert a signed graph from the general txt format available on the [SNAP](https://snap.stanford.edu/data/) and [KONECT](https://konect.cc/networks/) websites to the JSON format required by the Rust implementation, you can use the following command:
+
+```bash
+python graph_utils/convert_to_json.py --type <graph_type> --data <input_file> --output <output_base_name>
+```
+
+Where `<graph_type>` is the type of the graph (If the graph contains weighted edges that should be preserved, use `weighted` as the type. Otherwise, use `signed`).
+
+**Generate Synthetic Graphs:**
+
+To generate synthetic signed graphs from a given interval structure, you can use the following command:
+
+```bash
+python graph_utils/generate_synthetic_interval_graph.py --intervals_file <interval_structure_file> --output_dir <output_directory>
+```
+
+Further parameters can be set in the script itself. The generated graphs will be saved in the specified output directory.
