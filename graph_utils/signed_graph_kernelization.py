@@ -1,6 +1,6 @@
 import networkx as nx
 import os
-from graph_utils.signed_graph import SignedGraph, read_signed_graph, save_graph_to_file
+from signed_graph import SignedGraph, read_signed_graph, save_graph_to_file
 
 def _find_pos_vertices(graph: SignedGraph):
     return [node for node, degree in graph.G_minus.degree() if degree == 0]

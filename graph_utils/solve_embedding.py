@@ -1,7 +1,7 @@
 import gurobipy as gp
 from gurobipy import GRB
-from graph_utils.signed_graph import SignedGraph, read_signed_graph
-from graph_utils.signed_graph_kernelization import kernelize_signed_graph
+from signed_graph import SignedGraph, read_signed_graph
+from signed_graph_kernelization import kernelize_signed_graph
 
 import numpy as np
 import os
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     os.makedirs(okay_dir, exist_ok=True)
     os.makedirs(bad_dir, exist_ok=True)
 
-    file = "data/graph_0.txt"
+    file = "data/cycle.txt"
     
     graph = read_signed_graph(file)
 
