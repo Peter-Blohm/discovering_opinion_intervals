@@ -1,8 +1,10 @@
+use rand::Rng;
 use std::collections::{BinaryHeap, HashMap};
 use std::time::Instant;
-use rand::Rng;
 
-use crate::data_types::{DynamicEdge, DynamicGraph, Partition, Interval, IntervalStructure, SignedEdge};
+use crate::data_types::{
+    DynamicEdge, DynamicGraph, Interval, IntervalStructure, Partition, SignedEdge,
+};
 
 pub fn greedy_additive_edge_contraction(
     num_vertices: usize,
@@ -16,7 +18,11 @@ pub fn greedy_additive_edge_contraction(
     for edge in edges {
         original_graph.update_edge_weight(edge.source, edge.target, edge.weight);
 
-        let (a_sorted, b_sorted) = if edge.source <= edge.target { (edge.source, edge.target) } else { (edge.target, edge.source) };
+        let (a_sorted, b_sorted) = if edge.source <= edge.target {
+            (edge.source, edge.target)
+        } else {
+            (edge.target, edge.source)
+        };
 
         *edge_editions[edge.source].entry(edge.target).or_insert(0) += 1;
         let edition = edge_editions[edge.target].entry(edge.source).or_insert(0);
@@ -118,7 +124,7 @@ pub fn cc_compute_violations(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> 
 
     for edge in edges {
         let same_cluster = node_labels[edge.source] == node_labels[edge.target];
-        
+
         if (edge.weight < 0.0 && same_cluster) || (edge.weight > 0.0 && !same_cluster) {
             violations += f64::abs(edge.weight);
         }
@@ -140,18 +146,18 @@ pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<us
 
     let mut best_labels = node_labels.to_vec();
     let mut best_violations = cc_compute_violations(edges, &best_labels);
-    
+
     println!("Starting local search with {} violations", best_violations);
-    
+
     let mut unique_clusters: Vec<usize> = best_labels.iter().cloned().collect();
     unique_clusters.sort();
     unique_clusters.dedup();
-    
+
     println!("Found {} unique clusters", unique_clusters.len());
-    
+
     let mut rng = rand::rng();
     let mut improved = true;
-    
+
     let node_indices: Vec<usize> = (0..best_labels.len()).collect();
 
     let mut iteration_count = 0;
@@ -161,41 +167,43 @@ pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<us
 
     while improved {
         improved = false;
-        
+
         let mut best_move_node_idx = None;
         let mut best_move_cluster = None;
         let mut best_move_violations = f64::MAX;
         let mut best_move_counter = 0;
-        
+
         for &node_idx in &node_indices {
             let current_cluster = best_labels[node_idx];
             for &cluster in &unique_clusters {
                 if cluster == current_cluster {
                     continue;
                 }
-                
+
                 best_labels[node_idx] = cluster;
-                
+
                 let mut new_violations_delta: f64 = 0.0;
                 let old_cluster = current_cluster;
                 let new_cluster = cluster;
-                
+
                 for (&neighbor, &weight) in original_graph.get_adjacent_vertices(node_idx) {
                     let neighbor_cluster = best_labels[neighbor];
-                    
-                    if (weight < 0.0 && old_cluster == neighbor_cluster) || 
-                       (weight > 0.0 && old_cluster != neighbor_cluster) {
+
+                    if (weight < 0.0 && old_cluster == neighbor_cluster)
+                        || (weight > 0.0 && old_cluster != neighbor_cluster)
+                    {
                         new_violations_delta -= f64::abs(weight);
                     }
-                    
-                    if (weight < 0.0 && new_cluster == neighbor_cluster) || 
-                       (weight > 0.0 && new_cluster != neighbor_cluster) {
+
+                    if (weight < 0.0 && new_cluster == neighbor_cluster)
+                        || (weight > 0.0 && new_cluster != neighbor_cluster)
+                    {
                         new_violations_delta += f64::abs(weight);
                     }
                 }
-                
+
                 let new_violations = best_violations + new_violations_delta;
-                
+
                 if new_violations < best_move_violations {
                     best_move_violations = new_violations;
                     best_move_cluster = Some(cluster);
@@ -220,29 +228,34 @@ pub fn cc_local_search(edges: &Vec<SignedEdge>, node_labels: &[usize]) -> Vec<us
         }
 
         iteration_count += 1;
-        
+
         let now = Instant::now();
         if now.duration_since(last_report_time) >= report_interval {
             let elapsed = now.duration_since(last_report_time).as_secs_f64();
             let iterations_in_interval = iteration_count - last_iteration_count;
             let iterations_per_second = iterations_in_interval as f64 / elapsed;
-            println!("Iterations per second: {:.2} (total: {})", iterations_per_second, iteration_count);
-            
+            println!(
+                "Iterations per second: {:.2} (total: {})",
+                iterations_per_second, iteration_count
+            );
+
             last_report_time = now;
             last_iteration_count = iteration_count;
         }
     }
-    
+
     let elapsed = t_start.elapsed();
     let total_iterations_per_second = iteration_count as f64 / elapsed.as_secs_f64();
-    
+
     println!("Local search completed in {:.2?}", elapsed);
     println!("Total iterations: {}", iteration_count);
-    println!("Average iterations per second: {:.2}", total_iterations_per_second);
-    
+    println!(
+        "Average iterations per second: {:.2}",
+        total_iterations_per_second
+    );
+
     best_labels
 }
-
 
 /// Check if two intervals overlap
 pub(crate) fn intervals_overlap(interval1: &Interval, interval2: &Interval) -> bool {
@@ -254,7 +267,7 @@ pub fn compute_interval_violations(
     edges: &Vec<SignedEdge>,
     node_labels: &[usize],
     interval_structure: &IntervalStructure,
-    cluster_to_interval_map: &HashMap<usize, usize>
+    cluster_to_interval_map: &HashMap<usize, usize>,
 ) -> f64 {
     let mut violations = 0.0;
 
@@ -289,20 +302,20 @@ pub fn compute_interval_violations(
 fn generate_permutations(
     current: &mut Vec<usize>,
     remaining: &mut Vec<usize>,
-    permutations: &mut Vec<Vec<usize>>
+    permutations: &mut Vec<Vec<usize>>,
 ) {
     if remaining.is_empty() {
         permutations.push(current.clone());
         return;
     }
-    
+
     let n = remaining.len();
     for i in 0..n {
         let element = remaining.remove(i);
         current.push(element);
-        
+
         generate_permutations(current, remaining, permutations);
-        
+
         // Backtrack
         current.pop();
         remaining.insert(i, element);
@@ -313,39 +326,48 @@ fn generate_permutations(
 pub fn brute_force_interval_structure(
     edges: &Vec<SignedEdge>,
     node_labels: &[usize],
-    interval_structure: &IntervalStructure
+    interval_structure: &IntervalStructure,
 ) -> (HashMap<usize, usize>, f64) {
     let mut unique_clusters: Vec<usize> = node_labels.iter().cloned().collect();
     unique_clusters.sort();
     unique_clusters.dedup();
-    
+
     let num_clusters = unique_clusters.len();
     let num_intervals = interval_structure.intervals.len();
-    
-    println!("Brute-forcing {} clusters to {} intervals", num_clusters, num_intervals);
-    
+
+    println!(
+        "Brute-forcing {} clusters to {} intervals",
+        num_clusters, num_intervals
+    );
+
     if num_clusters != num_intervals {
-        panic!("Error: Number of clusters ({}) and number of intervals ({}) don't match.", 
-               num_clusters, num_intervals);
+        panic!(
+            "Error: Number of clusters ({}) and number of intervals ({}) don't match.",
+            num_clusters, num_intervals
+        );
     }
-    
+
     let interval_indices: Vec<usize> = (0..num_intervals).collect();
-    
+
     let mut current_permutation: Vec<usize> = Vec::new();
     let mut permutations: Vec<Vec<usize>> = Vec::new();
-    
+
     let mut remaining_indices = interval_indices.clone();
-    generate_permutations(&mut current_permutation, &mut remaining_indices, &mut permutations);
-    
+    generate_permutations(
+        &mut current_permutation,
+        &mut remaining_indices,
+        &mut permutations,
+    );
+
     let total_permutations = permutations.len();
     println!("Testing {} permutations", total_permutations);
-    
+
     let start_time = Instant::now();
     let mut best_violations = f64::MAX;
     let mut best_mapping = HashMap::new();
-    
+
     let report_every = std::cmp::max(1, total_permutations / 100);
-    
+
     for (i, perm) in permutations.iter().enumerate() {
         let mut cluster_to_interval = HashMap::new();
         for (j, &cluster) in unique_clusters.iter().enumerate() {
@@ -353,28 +375,28 @@ pub fn brute_force_interval_structure(
                 cluster_to_interval.insert(cluster, perm[j]);
             }
         }
-        
+
         let violations = compute_interval_violations(
-            edges, 
-            node_labels, 
-            interval_structure, 
-            &cluster_to_interval
+            edges,
+            node_labels,
+            interval_structure,
+            &cluster_to_interval,
         );
-        
+
         if violations < best_violations {
             best_violations = violations;
             best_mapping = cluster_to_interval.clone();
         }
-        
+
         if i % report_every == 0 {
             let progress = (i as f64 / total_permutations as f64) * 100.0;
             println!("Progress: {:.1}% ({}/{})", progress, i, total_permutations);
         }
     }
-    
+
     let elapsed = start_time.elapsed();
     println!("Brute force completed in {:.2?}", elapsed);
     println!("Best violation count: {}", best_violations);
-    
+
     (best_mapping, best_violations)
 }

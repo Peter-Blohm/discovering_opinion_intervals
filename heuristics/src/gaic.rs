@@ -1,13 +1,13 @@
 use crate::data_types::{IntervalStructure, SignedEdge, UsefulSignedGraph};
-use priority_queue::PriorityQueue;
-use rand::{Rng, SeedableRng};
-use smallvec::SmallVec;
-use std::time::{Duration, Instant};
-use rand::rngs::StdRng;
-use serde::Deserialize;
 use fxhash::FxHasher;
-use std::hash::BuildHasherDefault;
+use priority_queue::PriorityQueue;
 use rand::prelude::SliceRandom;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use serde::Deserialize;
+use smallvec::SmallVec;
+use std::hash::BuildHasherDefault;
+use std::time::{Duration, Instant};
 
 type FxMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FxHasher>>;
 type FxPQ<K, P> = PriorityQueue<K, P, BuildHasherDefault<FxHasher>>;
@@ -15,7 +15,7 @@ type FxPQ<K, P> = PriorityQueue<K, P, BuildHasherDefault<FxHasher>>;
 #[derive(Clone)]
 pub struct WeightedNeighbourhood {
     //adjacency lists
-    pub weighted_neighbors: FxMap<usize,f64>,
+    pub weighted_neighbors: FxMap<usize, f64>,
 }
 
 impl WeightedNeighbourhood {
@@ -26,15 +26,13 @@ impl WeightedNeighbourhood {
     }
 }
 
-
-
 pub struct SignedAdjacencyList {
     pub total_edge_weights: f64,
     pub total_negative_edge_weights: f64,
     pub adj_graph: Vec<WeightedNeighbourhood>,
 }
 impl SignedAdjacencyList {
-    pub fn new(edges: &Vec<SignedEdge>, num_vertices:usize) -> Self {
+    pub fn new(edges: &Vec<SignedEdge>, num_vertices: usize) -> Self {
         let mut total_edge_weights = 0.0;
         let mut total_negative_edge_weights = 0.0;
 
@@ -43,16 +41,24 @@ impl SignedAdjacencyList {
             .map(|_| WeightedNeighbourhood::new())
             .collect();
         for edge in edges {
-            adj_graph[edge.source].weighted_neighbors.insert(edge.target,edge.weight);
-            adj_graph[edge.target].weighted_neighbors.insert(edge.source,edge.weight);
+            adj_graph[edge.source]
+                .weighted_neighbors
+                .insert(edge.target, edge.weight);
+            adj_graph[edge.target]
+                .weighted_neighbors
+                .insert(edge.source, edge.weight);
             total_edge_weights += f64::abs(edge.weight);
-            if edge.weight <  0.0 {total_negative_edge_weights += f64::abs(edge.weight);}
+            if edge.weight < 0.0 {
+                total_negative_edge_weights += f64::abs(edge.weight);
+            }
         }
         // no longer mutable
-        SignedAdjacencyList { adj_graph, total_edge_weights, total_negative_edge_weights }
+        SignedAdjacencyList {
+            adj_graph,
+            total_edge_weights,
+            total_negative_edge_weights,
+        }
     }
-
-
 }
 
 #[derive(Clone)]
@@ -138,12 +144,13 @@ impl PriorityVertex {
         self.max_affinity = best_aff;
     }
 
-    pub fn get_sort_priority(&self) -> (usize,  usize) {
+    pub fn get_sort_priority(&self) -> (usize, usize) {
         (f64::floor(self.max_affinity) as usize, self.priority)
     }
     pub fn get_favorite_cluster(&self, temperature: f64, local_rng: &mut StdRng) -> usize {
-        if temperature == 0.0 { // no simulated annealing
-            return self.favorite_cluster
+        if temperature == 0.0 {
+            // no simulated annealing
+            return self.favorite_cluster;
         }
         debug_assert!(temperature.is_sign_positive());
         let inv_t = 1.0 / temperature.max(1e-12);
@@ -151,8 +158,8 @@ impl PriorityVertex {
         let mut best_val = f64::NEG_INFINITY;
         for (idx, &aff) in self.cluster_affinities.iter().enumerate() {
             let u: f64 = local_rng.random_range(0.0..1.0);
-            let g = -(-u.ln()).ln();            // Gumbel(0,1)
-            let val = aff as f64 * inv_t + g;          // aff/T  +  Gumbel
+            let g = -(-u.ln()).ln(); // Gumbel(0,1)
+            let val = aff as f64 * inv_t + g; // aff/T  +  Gumbel
             if val > best_val {
                 best_val = val;
                 best_idx = idx;
@@ -162,7 +169,7 @@ impl PriorityVertex {
     }
 }
 
-#[derive(Deserialize,Clone)]
+#[derive(Deserialize, Clone)]
 pub struct GaicConfig {
     pub num_epochs: usize,
     pub timeout_s: u64,
@@ -173,7 +180,6 @@ pub struct GaicConfig {
     pub temperature_decay_factor: f64,
     pub temperature_decay_epochs: usize,
 }
-
 
 pub fn greedy_absolute_interval_contraction(
     signed_graph: &UsefulSignedGraph,
@@ -186,17 +192,16 @@ pub fn greedy_absolute_interval_contraction(
     let num_vertices = signed_graph.num_vertices;
     // let edges = &signed_graph.edges;
     let num_intervals = interval_structure.intervals.len();
-    let adj_graph = SignedAdjacencyList::new(&signed_graph.edges,num_vertices);
+    let adj_graph = SignedAdjacencyList::new(&signed_graph.edges, num_vertices);
 
     let mut temp = config.initial_temperature;
-
 
     let mut perm: Vec<usize> = (0..num_vertices).collect();
     perm.shuffle(&mut local_rng);
     let start_time = Instant::now();
     let mut priority_vertices: Vec<PriorityVertex> = perm
         .into_iter()
-        .map(|priority| PriorityVertex::new(priority, num_intervals,&mut local_rng))
+        .map(|priority| PriorityVertex::new(priority, num_intervals, &mut local_rng))
         .collect();
 
     // run ////////////////////////////////////
@@ -209,17 +214,19 @@ pub fn greedy_absolute_interval_contraction(
         &mut priority_vertices,
         &adj_graph.adj_graph,
         temp,
-        &mut local_rng
+        &mut local_rng,
     );
 
-    println!("edge_weight,current, best_batch, best,best+negative_edge_weight, epochs_since_restart, current_temp, runtime");
+    println!(
+        "edge_weight,current, best_batch, best,best+negative_edge_weight, epochs_since_restart, current_temp, runtime"
+    );
     println!(
         "{}, {}, {}, {}, {:.2}, {}, {}, {:.3}",
         adj_graph.total_edge_weights,
-        adj_graph.total_edge_weights-agreement,
-        adj_graph.total_edge_weights-agreement,
-        adj_graph.total_edge_weights-agreement,
-        -adj_graph.total_negative_edge_weights+adj_graph.total_edge_weights-agreement,
+        adj_graph.total_edge_weights - agreement,
+        adj_graph.total_edge_weights - agreement,
+        adj_graph.total_edge_weights - agreement,
+        -adj_graph.total_negative_edge_weights + adj_graph.total_edge_weights - agreement,
         0,
         temp,
         (Instant::now() - start_time).as_millis()
@@ -227,29 +234,52 @@ pub fn greedy_absolute_interval_contraction(
     let mut best_assigment = assigned.clone();
     let mut best_agreement = agreement.clone();
     let mut last_improvement: usize = 0;
-    let mut epoch_solution: f64= 0.0;
-    let timeout =  Duration::from_millis(config.timeout_s * 1000);
+    let mut epoch_solution: f64 = 0.0;
+    let timeout = Duration::from_millis(config.timeout_s * 1000);
     //////////////////// MAIN REASSIGNMENT LOOP ///////////////////////////////
-    for epoch in 1..config.num_epochs{
-        if (Instant::now() - start_time > timeout) || (last_improvement > config.early_stopping_epochs) {
-            break
+    for epoch in 1..config.num_epochs {
+        if (Instant::now() - start_time > timeout)
+            || (last_improvement > config.early_stopping_epochs)
+        {
+            break;
         }
 
         let mut indices: Vec<usize> = (0..num_vertices).collect();
-        if epoch > 1 { indices.shuffle(&mut local_rng); }
+        if epoch > 1 {
+            indices.shuffle(&mut local_rng);
+        }
 
-        let chunk_size = (num_vertices + config.num_reassignment_chunks -1 ) / config.num_reassignment_chunks;
+        let chunk_size =
+            (num_vertices + config.num_reassignment_chunks - 1) / config.num_reassignment_chunks;
 
-        for chunk in indices.chunks(chunk_size).take(config.num_reassignment_chunks) {
-            let lost_agreement = unassign(chunk, &mut assigned, interval_structure, 
-                                          num_intervals, &mut priority_vertices, &adj_graph.adj_graph, &mut local_rng);
+        for chunk in indices
+            .chunks(chunk_size)
+            .take(config.num_reassignment_chunks)
+        {
+            let lost_agreement = unassign(
+                chunk,
+                &mut assigned,
+                interval_structure,
+                num_intervals,
+                &mut priority_vertices,
+                &adj_graph.adj_graph,
+                &mut local_rng,
+            );
 
-            let won_agreement =    assign(chunk, &mut assigned, interval_structure, 
-                                          num_intervals, &mut priority_vertices, &adj_graph.adj_graph, temp, &mut local_rng);
+            let won_agreement = assign(
+                chunk,
+                &mut assigned,
+                interval_structure,
+                num_intervals,
+                &mut priority_vertices,
+                &adj_graph.adj_graph,
+                temp,
+                &mut local_rng,
+            );
 
             if agreement + won_agreement - lost_agreement > best_agreement {
                 best_assigment = assigned.clone();
-                best_agreement =  agreement + won_agreement - lost_agreement;
+                best_agreement = agreement + won_agreement - lost_agreement;
             }
             agreement = agreement + won_agreement - lost_agreement;
             if agreement > epoch_solution {
@@ -260,29 +290,31 @@ pub fn greedy_absolute_interval_contraction(
         println!(
             "{}, {}, {}, {}, {}, {}, {}, {:.3}",
             adj_graph.total_edge_weights,
-            adj_graph.total_edge_weights-agreement,
-            adj_graph.total_edge_weights-epoch_solution,
-            adj_graph.total_edge_weights-best_agreement,
-            -adj_graph.total_negative_edge_weights+adj_graph.total_edge_weights-agreement,
+            adj_graph.total_edge_weights - agreement,
+            adj_graph.total_edge_weights - epoch_solution,
+            adj_graph.total_edge_weights - best_agreement,
+            -adj_graph.total_negative_edge_weights + adj_graph.total_edge_weights - agreement,
             last_improvement,
             temp,
             (Instant::now() - start_time).as_millis()
         );
-        last_improvement+=1;
+        last_improvement += 1;
 
-        if epoch % config.temperature_decay_epochs == 0 { temp *= config.temperature_decay_factor; }
+        if epoch % config.temperature_decay_epochs == 0 {
+            temp *= config.temperature_decay_factor;
+        }
     }
     best_assigment
 }
 
-fn unassign(idx: &[usize],
-            assigned: &mut Vec<usize>,
-            interval_structure: &IntervalStructure,
-            num_intervals: usize,
-            priority_vertices: &mut Vec<PriorityVertex>,
-            adj_graph: &Vec<WeightedNeighbourhood>,
-            local_rng: &mut StdRng
-
+fn unassign(
+    idx: &[usize],
+    assigned: &mut Vec<usize>,
+    interval_structure: &IntervalStructure,
+    num_intervals: usize,
+    priority_vertices: &mut Vec<PriorityVertex>,
+    adj_graph: &Vec<WeightedNeighbourhood>,
+    local_rng: &mut StdRng,
 ) -> f64 {
     let mut perm: Vec<usize> = (0..idx.len()).collect();
     perm.shuffle(local_rng);
@@ -302,8 +334,9 @@ fn unassign(idx: &[usize],
                 let neighbor = &mut priority_vertices[n];
                 if {
                     let mut ret = false;
-                    if interval_structure.intervals_overlap(cluster, fav) == (weight > 0.0) { //if positive weight and overlap or negative weight an no overlap
-                        ret= neighbor.decrease_affinity_unsafe(cluster, f64::abs(weight));
+                    if interval_structure.intervals_overlap(cluster, fav) == (weight > 0.0) {
+                        //if positive weight and overlap or negative weight an no overlap
+                        ret = neighbor.decrease_affinity_unsafe(cluster, f64::abs(weight));
                     }
                     ret
                 } {
@@ -328,18 +361,17 @@ fn assign(
     priority_vertices: &mut Vec<PriorityVertex>,
     adj_graph: &Vec<WeightedNeighbourhood>,
     temp: f64,
-    local_rng: &mut StdRng
+    local_rng: &mut StdRng,
 ) -> f64 {
     let mut agreement: f64 = 0.0;
     let mut pq: FxPQ<usize, (usize, usize)> =
         FxPQ::with_capacity_and_hasher(priority_vertices.len(), Default::default());
-    pq.extend(idx.into_iter()
-                  .map(|&i| (i, priority_vertices[i].get_sort_priority())));
+    pq.extend(
+        idx.into_iter()
+            .map(|&i| (i, priority_vertices[i].get_sort_priority())),
+    );
     while let Some((id, _)) = pq.pop() {
-        let fav = priority_vertices[id].get_favorite_cluster(
-            temp,
-            local_rng
-        );
+        let fav = priority_vertices[id].get_favorite_cluster(temp, local_rng);
         assigned[id] = fav;
         agreement += priority_vertices[id].cluster_affinities[fav];
 
@@ -351,8 +383,9 @@ fn assign(
                 let neighbor = &mut priority_vertices[n];
                 if {
                     let mut ret = false;
-                    if interval_structure.intervals_overlap(cluster, fav) == (weight > 0.0) { //if positive weight and overlap or negative weight an no overlap
-                        ret= neighbor.increase_affinity(cluster, f64::abs(weight));
+                    if interval_structure.intervals_overlap(cluster, fav) == (weight > 0.0) {
+                        //if positive weight and overlap or negative weight an no overlap
+                        ret = neighbor.increase_affinity(cluster, f64::abs(weight));
                     }
                     ret
                 } {

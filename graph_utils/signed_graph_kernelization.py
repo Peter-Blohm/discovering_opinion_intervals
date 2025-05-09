@@ -2,6 +2,7 @@ import networkx as nx
 import os
 from signed_graph import SignedGraph, read_signed_graph, save_graph_to_file
 
+
 def find_max_ratio_vertex(graph: SignedGraph, sign=0) -> tuple[int, float, int]:
     """
     returns index of vertex which has the highest imbalance in edge-signs
@@ -19,17 +20,18 @@ def find_max_ratio_vertex(graph: SignedGraph, sign=0) -> tuple[int, float, int]:
         if (plus_deg[index] + minus_deg[index]) == 0:
             graph.remove_node(node)
             continue
-        ratio = plus_deg[index]/(plus_deg[index] + minus_deg[index])
+        ratio = plus_deg[index] / (plus_deg[index] + minus_deg[index])
 
         if ratio > best_ratio and sign != -1:
             best_vertex = node
             best_ratio = ratio
             violated_edges = minus_deg[index]
-        if ratio < 1-best_ratio and sign != 1:
+        if ratio < 1 - best_ratio and sign != 1:
             best_vertex = node
-            best_ratio = 1-ratio
+            best_ratio = 1 - ratio
             violated_edges = plus_deg[index]
     return best_vertex, best_ratio, violated_edges
+
 
 def _find_pos_vertices(graph: SignedGraph):
     return [node for node, degree in graph.G_minus.degree() if degree == 0]
@@ -66,6 +68,7 @@ def _delete_2mix_vertices(graph: SignedGraph):
     new_graph.remove_nodes_from(pos_vertices)
     return new_graph
 
+
 def _find_one_seperated_components(graph: SignedGraph):
     new_components = []
 
@@ -87,7 +90,7 @@ def _find_one_seperated_components(graph: SignedGraph):
 
         if len(connected_components) >= 3:
             conn_components = connected_components
-            
+
             for component_nodes in conn_components:
                 component = signed_graph.subgraph(component_nodes)
                 new_components.append(component)
@@ -95,11 +98,12 @@ def _find_one_seperated_components(graph: SignedGraph):
             break
 
         combined_graph.add_edges_from(edges)
-    
+
     if not split:
         new_components.append(signed_graph)
-        
+
     return new_components
+
 
 def kernelize_signed_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
     """
@@ -122,13 +126,14 @@ def kernelize_signed_graph(graph: SignedGraph, safe=True) -> list[SignedGraph]:
                 subgraph = graph.subgraph(component).copy()
                 graphs_prime.append(subgraph)
         graphs = graphs_prime
-        
+
     if len(graphs) < 2:
         return graphs
     kernel_graphs = []
     for g in graphs:
         kernel_graphs.extend(kernelize_signed_graph(g))
     return kernel_graphs
+
 
 def _find_singly_pos_connected_vertices(graph: SignedGraph):
     """
@@ -149,19 +154,20 @@ def _find_singly_pos_connected_vertices(graph: SignedGraph):
 def kernelize_for_fixed_intervals(graph: SignedGraph) -> SignedGraph:
     """
     Repeatedly removes vertices that have exactly one positive neighbor and no negative neighbors.
-    
+
     :param graph: the input SignedGraph
     :return: kernelized SignedGraph
     """
     result_graph = graph.copy()
-    
+
     while True:
         to_remove = _find_singly_pos_connected_vertices(result_graph)
         if not to_remove:
             break
         result_graph.remove_nodes_from(to_remove)
-    
+
     return result_graph
+
 
 def chicken_algorithm(G: SignedGraph):
     """
@@ -175,7 +181,7 @@ def chicken_algorithm(G: SignedGraph):
     vio = 0
     for graph in graphs:
         ratio_sum = 0
-        its = min(1000, graph.G_plus.number_of_nodes()-1)
+        its = min(1000, graph.G_plus.number_of_nodes() - 1)
         for i in range(its):
             vertex, ratio, violations = find_max_ratio_vertex(graph)
             try:
@@ -189,6 +195,7 @@ def chicken_algorithm(G: SignedGraph):
 
     return vio
 
+
 if __name__ == "__main__":
     file = "data/bundestag_signed_graph_all_periods.txt"
 
@@ -198,11 +205,21 @@ if __name__ == "__main__":
     graphs = kernelize_signed_graph(graph, safe=True)
 
     kernel_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
-    kernel_graph.G_plus = nx.relabel.convert_node_labels_to_integers(kernel_graph.G_plus, first_label=1, ordering='default')
-    kernel_graph.G_minus = nx.relabel.convert_node_labels_to_integers(kernel_graph.G_minus, first_label=1, ordering='default')
-    print(f"Number of vertices in largest connected component after 1 round of error free kernelization: {kernel_graph.number_of_nodes()}")
-    print(f"Number of positives edges in largest connected component after 1 round of error free kernelization: {kernel_graph.G_plus.number_of_edges()}")
-    print(f"Number of negative edges in largest connected component after 1 round of error free kernelization: {kernel_graph.G_minus.number_of_edges()}")
+    kernel_graph.G_plus = nx.relabel.convert_node_labels_to_integers(
+        kernel_graph.G_plus, first_label=1, ordering="default"
+    )
+    kernel_graph.G_minus = nx.relabel.convert_node_labels_to_integers(
+        kernel_graph.G_minus, first_label=1, ordering="default"
+    )
+    print(
+        f"Number of vertices in largest connected component after 1 round of error free kernelization: {kernel_graph.number_of_nodes()}"
+    )
+    print(
+        f"Number of positives edges in largest connected component after 1 round of error free kernelization: {kernel_graph.G_plus.number_of_edges()}"
+    )
+    print(
+        f"Number of negative edges in largest connected component after 1 round of error free kernelization: {kernel_graph.G_minus.number_of_edges()}"
+    )
 
     print(f"chicken algorithm violated edges:{chicken_algorithm(kernel_graph)}")
 

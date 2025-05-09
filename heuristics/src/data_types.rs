@@ -1,8 +1,8 @@
-use serde::Deserialize;
-use std::collections::HashMap;
-use std::cmp::Ordering;
-use std::hash::BuildHasherDefault;
 use fxhash::FxHasher;
+use serde::Deserialize;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::hash::BuildHasherDefault;
 
 type FxMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FxHasher>>;
 type FxSet<T> = std::collections::HashSet<T, BuildHasherDefault<FxHasher>>;
@@ -19,7 +19,6 @@ pub struct SignedGraph {
     pub edges: Vec<SignedEdge>,
 }
 
-
 #[derive(Deserialize, Debug)]
 pub struct UsefulSignedGraph {
     pub num_vertices: usize,
@@ -29,7 +28,9 @@ pub struct UsefulSignedGraph {
 
 impl UsefulSignedGraph {
     pub fn new(graph: &SignedGraph) -> UsefulSignedGraph {
-        let vertices: FxSet<usize> = graph.edges.iter()
+        let vertices: FxSet<usize> = graph
+            .edges
+            .iter()
             .flat_map(|edge| [edge.source, edge.target])
             .collect();
         let num_vertices = vertices.len();
@@ -43,17 +44,25 @@ impl UsefulSignedGraph {
         for edge in &graph.edges {
             let new_a = *vertex_map.get(&edge.source).unwrap();
             let new_b = *vertex_map.get(&edge.target).unwrap();
-            edges.push(SignedEdge { source: new_a, target: new_b, weight: edge.weight });
+            edges.push(SignedEdge {
+                source: new_a,
+                target: new_b,
+                weight: edge.weight,
+            });
         }
-        UsefulSignedGraph { num_vertices, edges, inverse_map }
+        UsefulSignedGraph {
+            num_vertices,
+            edges,
+            inverse_map,
+        }
     }
 
     pub fn vertex_id(&self, normalized_id: usize) -> usize {
-        *self.inverse_map.get(&normalized_id).unwrap_or_else(|| panic!("Vertex {} not found", normalized_id))
+        *self
+            .inverse_map
+            .get(&normalized_id)
+            .unwrap_or_else(|| panic!("Vertex {} not found", normalized_id))
     }
-
-
-
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -68,8 +77,7 @@ pub struct IntervalStructure {
 }
 
 impl IntervalStructure {
-    pub(crate) fn intervals_overlap(&self, interval_index1: usize, interval_index2:usize) -> bool {
-        
+    pub(crate) fn intervals_overlap(&self, interval_index1: usize, interval_index2: usize) -> bool {
         let in1 = &self.intervals[interval_index1];
         let in2 = &self.intervals[interval_index2];
         (in2.start <= in1.end) && (in1.start <= in2.end)
@@ -113,23 +121,22 @@ impl DynamicGraph {
     }
 }
 
-
-/// Represents an edge in the dynamic graph used specifically for the 
+/// Represents an edge in the dynamic graph used specifically for the
 /// Greedy Additive Edge Contraction (GAEC) algorithm. This structure
-/// is designed to store information about an edge, including its 
-/// endpoints, weight, and edition number, which is used to track 
+/// is designed to store information about an edge, including its
+/// endpoints, weight, and edition number, which is used to track
 /// updates to the edge during the contraction process.
 ///
 /// # Fields
 /// - `a`: The first vertex of the edge.
 /// - `b`: The second vertex of the edge.
-/// - `edition`: The edition number of the edge, which tracks how many 
+/// - `edition`: The edition number of the edge, which tracks how many
 ///   times the edge has been updated during the algorithm's execution.
-/// - `weight`: The weight of the edge, which determines its priority 
+/// - `weight`: The weight of the edge, which determines its priority
 ///   in the contraction process.
 ///
-/// This type implements `Ord` and `PartialOrd` to allow edges to be 
-/// prioritized in a max-heap (via `BinaryHeap`), where edges with 
+/// This type implements `Ord` and `PartialOrd` to allow edges to be
+/// prioritized in a max-heap (via `BinaryHeap`), where edges with
 /// higher weights are processed first.
 #[derive(Debug, PartialEq)]
 pub struct DynamicEdge {
@@ -151,7 +158,9 @@ impl PartialOrd for DynamicEdge {
 
 impl Ord for DynamicEdge {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.weight.partial_cmp(&other.weight).unwrap_or(Ordering::Equal)
+        self.weight
+            .partial_cmp(&other.weight)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -159,14 +168,14 @@ impl Ord for DynamicEdge {
 /// Supports path compression (for fast `find`) and union by rank (to keep trees balanced).
 pub struct Partition {
     parents: Vec<usize>,
-    ranks: Vec<usize>
+    ranks: Vec<usize>,
 }
 
 impl Partition {
     pub fn new(size: usize) -> Self {
         Partition {
-            parents: (0..size).collect(), 
-            ranks: vec![0; size] 
+            parents: (0..size).collect(),
+            ranks: vec![0; size],
         }
     }
 
