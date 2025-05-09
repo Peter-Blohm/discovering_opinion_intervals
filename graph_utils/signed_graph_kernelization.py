@@ -194,12 +194,19 @@ if __name__ == "__main__":
 
     graph = read_signed_graph(file)
 
-    kernel_graph = kernelize_for_fixed_intervals(graph)
+    # kernel_graph = kernelize_for_fixed_intervals(graph)
+    graphs = kernelize_signed_graph(graph, safe=True)
 
-    edges = [(u, v, 1) for u, v in kernel_graph.G_plus.edges()] + \
-            [(u, v, -1) for u, v in kernel_graph.G_minus.edges()]
-    
+    kernel_graph = max(graphs, key=lambda graph: graph.number_of_nodes())
+    kernel_graph.G_plus = nx.relabel.convert_node_labels_to_integers(kernel_graph.G_plus, first_label=1, ordering='default')
+    kernel_graph.G_minus = nx.relabel.convert_node_labels_to_integers(kernel_graph.G_minus, first_label=1, ordering='default')
+    print(f"Number of vertices in largest connected component after 1 round of error free kernelization: {kernel_graph.number_of_nodes()}")
+    print(f"Number of positives edges in largest connected component after 1 round of error free kernelization: {kernel_graph.G_plus.number_of_edges()}")
+    print(f"Number of negative edges in largest connected component after 1 round of error free kernelization: {kernel_graph.G_minus.number_of_edges()}")
+
+    print(f"chicken algorithm violated edges:{chicken_algorithm(kernel_graph)}")
+
     name = os.path.splitext(os.path.basename(file))[0] + "_kernel"
     output_dir = "data"
 
-    save_graph_to_file(edges, name, output_dir)
+    save_graph_to_file(kernel_graph, name, output_dir)

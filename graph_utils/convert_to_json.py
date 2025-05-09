@@ -60,7 +60,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Convert graph data to JSON format')
     parser.add_argument('--type', choices=['signed', 'weighted', 'both'], default='both',
                         help='Type of conversion to perform (signed, weighted, or both)')
-    parser.add_argument('--data', default="data/wiki_L_edges.txt",
+    parser.add_argument('--data', default="data/bundestag_signed_graph_all_periods.txt",
                         help='Path to input data file')
     parser.add_argument('--output', 
                         help='Base name for output file(s) (without extension)')

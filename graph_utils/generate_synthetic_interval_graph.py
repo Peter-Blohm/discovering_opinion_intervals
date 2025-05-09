@@ -64,13 +64,14 @@ def calculate_disagreement(graph, intervals, n_per_int):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate synthetic interval graphs')
     parser.add_argument('--output_dir', type=str, default=".", help='Directory to save the output files')
+    parser.add_argument('--intervals_file', type=str, required=True, help='Path to the intervals JSON file')
     parser.add_argument('--seed', type=int, default=None, help='Random seed (default: random)')
     args = parser.parse_args()
 
     output_dir = args.output_dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    
+
     p_vals = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     m_frac_vals = [0.2, 0.4, 0.6, 0.8, 1.0]
     n_per_int_vals = [100]
@@ -82,11 +83,11 @@ if __name__ == "__main__":
                 seed = args.seed if args.seed is not None else int(time.time())
                 
                 try:
-                    with open("intervals.json", "r") as f:
+                    with open(args.intervals_file, "r") as f:
                         intervals_data = json.load(f)
                         intervals = intervals_data["intervals"]
                 except FileNotFoundError:
-                    assert False, "intervals.json file not found. Please provide a valid file."
+                    assert False, "Interval file not loaded properly. Please provide a valid file."
 
                 print(f"Generating synthetic graph with parameters:")
                 print(f"  - n_per_int: {n_per_int}")

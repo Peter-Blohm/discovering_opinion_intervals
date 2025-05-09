@@ -102,11 +102,6 @@ def generate_disjoint_aux_vars(permutation: np.ndarray):
     return disjoint_aux
 
 if __name__ == "__main__":
-    okay_dir = "data/test_good"
-    bad_dir = "data/test_bad"
-
-    os.makedirs(okay_dir, exist_ok=True)
-    os.makedirs(bad_dir, exist_ok=True)
 
     file = "data/cycle.txt"
     
@@ -116,4 +111,4 @@ if __name__ == "__main__":
 
     embeddable, start, end = check_embeddability(file, None)
 
-    print(f"Embeddable: {embeddable}")
+    print(f"Embedding Error: {embeddable}")

@@ -5,7 +5,6 @@ import os
 import re
 import argparse
 from datetime import datetime
-from graph_utils.signed_graph import SignedGraph
 
 BUNDESTAG_PERIODS = {
     17: ("2009-10-27", "2013-10-21"),
@@ -93,12 +92,15 @@ def create_signed_graph(vote_matrix, agreement_threshold=0.75):
                 elif agreement_ratio < (1 - agreement_threshold):
                     G_minus.add_edge(person1, person2, weight=agreement_ratio)
     
-    signed_graph = SignedGraph(G_plus, G_minus)
+    signed_graph = {
+        "G_plus": G_plus, 
+        "G_minus": G_minus
+    }
     
     return signed_graph
 
 def create_person_id_mapping(signed_graph):
-    all_persons = list(set(list(signed_graph.G_plus.nodes()) + list(signed_graph.G_minus.nodes())))
+    all_persons = list(set(list(signed_graph["G_plus"].nodes()) + list(signed_graph["G_minus"].nodes())))
     all_persons.sort()
     
     id_to_person = {i: person for i, person in enumerate(all_persons)}
@@ -144,7 +146,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Create a signed graph from Bundestag voting data')
     parser.add_argument('--input', type=str, default="bundestag/all_votes.csv",
                         help='Path to the CSV file with voting data')
-    parser.add_argument('--output-dir', type=str, default="bundestag",
+    parser.add_argument('--output-dir', type=str, default="data",
                         help='Directory to save the output files')
     parser.add_argument('--bundestage', type=int, nargs='+', default=[],
                         help='Filter by specific Bundestag periods (e.g., 17 18 19)')
@@ -170,18 +172,18 @@ def main():
         output_name = f"bundestag_signed_graph_periods_{'_'.join(str(p) for p in args.bundestage)}"
     else:
         print("Using all votes (no Bundestag period filter)")
-        output_name = "bundestag_signed_graph_all_periods"
+        output_name = "bundestag_signed_graph_all_periods_2"
     
     vote_matrix = process_votes_to_matrix(votes_df)
     signed_graph = create_signed_graph(vote_matrix, args.agreement_threshold)
     
-    print(f"Created signed graph with {signed_graph.number_of_nodes()} nodes")
-    print(f"Positive edges: {signed_graph.G_plus.number_of_edges()}")
-    print(f"Negative edges: {signed_graph.G_minus.number_of_edges()}")
+    print(f"Created signed graph with {signed_graph['G_plus'].number_of_nodes()} nodes")
+    print(f"Positive edges: {signed_graph['G_plus'].number_of_edges()}")
+    print(f"Negative edges: {signed_graph['G_minus'].number_of_edges()}")
     
     id_to_person, person_to_id = create_person_id_mapping(signed_graph)
-    edges = [(u, v, 1) for u, v in signed_graph.G_plus.edges()] + \
-            [(u, v, -1) for u, v in signed_graph.G_minus.edges()]
+    edges = [(u, v, 1) for u, v in signed_graph["G_plus"].edges()] + \
+            [(u, v, -1) for u, v in signed_graph["G_minus"].edges()]
     
     print(f"Number of people with an edge: {len(set([u for u, v, sign in edges] + [v for u, v, sign in edges]))}")
     
