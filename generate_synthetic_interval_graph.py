@@ -30,18 +30,15 @@ def generate_synthetic_graph(intervals, n_per_int, m_frac, p, seed=None):
     return SignedGraph(G_plus, G_minus)
 
 def do_intervals_overlap(interval1, interval2):
-    # Check if two intervals overlap
     return max(interval1["start"], interval2["start"]) <= min(interval1["end"], interval2["end"])
 
 def calculate_disagreement(graph, intervals, n_per_int):
     total_violations = 0
     
-    # Create standard assignment: each node is assigned to the interval it was sampled from
     standard_assignment = {}
     for node in range(len(graph.G_plus.nodes)):
         standard_assignment[node] = node // n_per_int
     
-    # Check negative edges - violation if intervals overlap
     for i, j in graph.G_minus.edges:
         i_interval_idx = standard_assignment.get(i)
         j_interval_idx = standard_assignment.get(j)
@@ -49,11 +46,9 @@ def calculate_disagreement(graph, intervals, n_per_int):
         i_interval = intervals[i_interval_idx]
         j_interval = intervals[j_interval_idx]
         
-        # For negative edges: violation if intervals overlap
         if do_intervals_overlap(i_interval, j_interval):
             total_violations += 1
 
-    # Check positive edges - violation if intervals don't overlap
     for i, j in graph.G_plus.edges:
         i_interval_idx = standard_assignment.get(i)
         j_interval_idx = standard_assignment.get(j)
@@ -61,19 +56,14 @@ def calculate_disagreement(graph, intervals, n_per_int):
         i_interval = intervals[i_interval_idx]
         j_interval = intervals[j_interval_idx]
         
-        # For positive edges: violation if intervals don't overlap
         if not do_intervals_overlap(i_interval, j_interval):
             total_violations += 1
             
     return total_violations
 
-# Example usage:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate synthetic interval graphs')
     parser.add_argument('--output_dir', type=str, default=".", help='Directory to save the output files')
-    # parser.add_argument('--n_per_int', type=int, default=100, help='Number of nodes per interval')
-    # parser.add_argument('--m_frac', type=float, default=1.0, help='Fraction of edges to include (0.0 to 1.0)')
-    # parser.add_argument('--p', type=float, default=1.0, help='Probability parameter for edge sign (0.0 to 1.0)')
     parser.add_argument('--seed', type=int, default=None, help='Random seed (default: random)')
     args = parser.parse_args()
 
@@ -84,12 +74,6 @@ if __name__ == "__main__":
     p_vals = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     m_frac_vals = [0.2, 0.4, 0.6, 0.8, 1.0]
     n_per_int_vals = [100]
-
-
-    # Use command line arguments with their defaults
-    # n_per_int = args.n_per_int
-    # m_frac = args.m_frac
-    # p = args.p
 
     for n_per_int in n_per_int_vals:
         for m_frac in m_frac_vals:
@@ -112,18 +96,14 @@ if __name__ == "__main__":
                 
                 signed_graph = generate_synthetic_graph(intervals, n_per_int, m_frac, p, seed)
                 
-                # Calculate disagreement for standard assignment
                 disagreement = calculate_disagreement(signed_graph, intervals, n_per_int)
                 print(f"Disagreement for standard assignment: {disagreement}")
                 
-                # Include disagreement in filename
                 output_filename = os.path.join(output_dir, f"synthetic_graph_n-per-int_{n_per_int}_m-frac_{m_frac}_p_{p}_disagreement_{disagreement}.json")
                 
-                # Save the graph
                 write_signed_graph_to_json(signed_graph, output_filename)
                 print(f"Graph generated and saved to {output_filename}")
                 
-                # Also save standard assignment for reference
                 standard_assignment = {}
                 for node in range(len(signed_graph.G_plus.nodes)):
                     standard_assignment[str(node)] = node // n_per_int

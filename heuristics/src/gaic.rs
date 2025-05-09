@@ -9,25 +9,8 @@ use fxhash::FxHasher;
 use std::hash::BuildHasherDefault;
 use rand::prelude::SliceRandom;
 
-// type FxSet<T> = std::collections::HashSet<T, BuildHasherDefault<FxHasher>>;
 type FxMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FxHasher>>;
 type FxPQ<K, P> = PriorityQueue<K, P, BuildHasherDefault<FxHasher>>;
-
-// #[derive(Clone)]
-// pub struct SignedNeighbourhood {
-//     //adjacency lists
-//     pub positive_neighbors: FxSet<usize>,
-//     pub negative_neighbors: FxSet<usize>,
-// }
-
-// impl SignedNeighbourhood {
-//     pub fn new() -> Self {
-//         SignedNeighbourhood {
-//             positive_neighbors: FxSet::default(),
-//             negative_neighbors: FxSet::default(),
-//         }
-//     }
-// }
 
 #[derive(Clone)]
 pub struct WeightedNeighbourhood {
@@ -229,8 +212,6 @@ pub fn greedy_absolute_interval_contraction(
         &mut local_rng
     );
 
-    // println!("Running time: {:.2?}", start_time.elapsed());
-    // println!("One run done");
     println!("edge_weight,current, best_batch, best,best+negative_edge_weight, epochs_since_restart, current_temp, runtime");
     println!(
         "{}, {}, {}, {}, {:.2}, {}, {}, {:.3}",
@@ -258,17 +239,14 @@ pub fn greedy_absolute_interval_contraction(
         if epoch > 1 { indices.shuffle(&mut local_rng); }
 
         let chunk_size = (num_vertices + config.num_reassignment_chunks -1 ) / config.num_reassignment_chunks;
-        // if last_improvement < 1500 {config.num_reassignment_chunks} else {temp =0.0002+temp;epoch_solution=0;println!("reset");2};
 
         for chunk in indices.chunks(chunk_size).take(config.num_reassignment_chunks) {
-            //new priorities
             let lost_agreement = unassign(chunk, &mut assigned, interval_structure, 
                                           num_intervals, &mut priority_vertices, &adj_graph.adj_graph, &mut local_rng);
 
             let won_agreement =    assign(chunk, &mut assigned, interval_structure, 
                                           num_intervals, &mut priority_vertices, &adj_graph.adj_graph, temp, &mut local_rng);
 
-            //overwrite the best if there was an improvement
             if agreement + won_agreement - lost_agreement > best_agreement {
                 best_assigment = assigned.clone();
                 best_agreement =  agreement + won_agreement - lost_agreement;
@@ -329,7 +307,6 @@ fn unassign(idx: &[usize],
                     }
                     ret
                 } {
-                    // remember vertex for changing queue priority later
                     updates.push(n);
                 }
             }
@@ -338,7 +315,6 @@ fn unassign(idx: &[usize],
         for n in updates.drain(..) {
             priority_vertices[n].update_favorites();
         }
-        // agreement-=agg;
         assigned[vertex_id] = num_intervals;
     }
     removed_agreement
@@ -380,12 +356,10 @@ fn assign(
                     }
                     ret
                 } {
-                    // remember vertex for changing queue priority later
                     updates.push((n, priority_vertices[n].get_sort_priority()));
                 }
             }
         }
-        // this is the expensive part
         for (n, prio) in updates.drain(..) {
             pq.change_priority(&n, prio);
         }

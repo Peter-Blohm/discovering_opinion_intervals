@@ -69,11 +69,9 @@ if __name__ == "__main__":
     
     data_path = args.data
     
-    # Determine output filename base (without extension)
     if args.output:
         output_base = args.output
     else:
-        # Extract filename from the input path
         import os
         output_base = os.path.splitext(os.path.basename(data_path))[0]
     

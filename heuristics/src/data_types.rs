@@ -49,7 +49,6 @@ impl UsefulSignedGraph {
     }
 
     pub fn vertex_id(&self, normalized_id: usize) -> usize {
-        //TODO sketchy
         *self.inverse_map.get(&normalized_id).unwrap_or_else(|| panic!("Vertex {} not found", normalized_id))
     }
 
@@ -114,8 +113,6 @@ impl DynamicGraph {
     }
 }
 
-// pub struct
-
 
 /// Represents an edge in the dynamic graph used specifically for the 
 /// Greedy Additive Edge Contraction (GAEC) algorithm. This structure
@@ -143,10 +140,6 @@ pub struct DynamicEdge {
 }
 
 impl Eq for DynamicEdge {
-    // Since DynamicEdge already implements PartialEq, and the weights are 
-    // compared using floating-point values which are handled in the Ord and 
-    // PartialOrd implementations, we can just delegate to the default 
-    // behavior for Eq.
     fn assert_receiver_is_total_eq(&self) {}
 }
 
@@ -165,58 +158,34 @@ impl Ord for DynamicEdge {
 /// A Union-Find (Disjoint Set Union) data structure optimized for efficient set merging and connectivity queries.
 /// Supports path compression (for fast `find`) and union by rank (to keep trees balanced).
 pub struct Partition {
-    /// Parent pointers for each element. Each element points to its parent in the set hierarchy.
-    /// The root of a set points to itself (e.g., `parents[i] == i` for roots).
     parents: Vec<usize>,
-    /// Rank (approximate depth) of the tree rooted at each element. Used during `merge` to keep trees shallow.
     ranks: Vec<usize>
 }
 
 impl Partition {
-    /// Creates a new Partition with `size` elements, each in its own set.
-    ///
-    /// # Arguments
-    /// * `size` - Number of elements in the initial partition.
     pub fn new(size: usize) -> Self {
         Partition {
-            parents: (0..size).collect(), // Each element is its own parent initially
-            ranks: vec![0; size] // All ranks start at 0
+            parents: (0..size).collect(), 
+            ranks: vec![0; size] 
         }
     }
 
-    /// Finds the root of the set containing `x`, with **path compression**.
-    /// Path compression flattens the tree by linking nodes directly to the root during traversal.
-    ///
-    /// # Arguments
-    /// * `x` - The element to find the root for.
-    ///
-    /// # Returns
-    /// The root (representative) of the set containing `x`.
     pub fn find(&mut self, x: usize) -> usize {
         if self.parents[x] != x {
-            // Path compression: make parent of `x` point directly to the root
             self.parents[x] = self.find(self.parents[x]);
         }
         self.parents[x]
     }
 
-    /// Merges the sets containing `x` and `y` using **union by rank**.
-    /// If `x` and `y` are already in the same set, this does nothing.
-    /// Otherwise, the tree with smaller rank is attached to the root of the tree with larger rank.
-    ///
-    /// # Arguments
-    /// * `x`, `y` - Elements whose sets will be merged.
     pub fn union(&mut self, x: usize, y: usize) {
         let x_root = self.find(x);
         let y_root = self.find(y);
 
         if x_root != y_root {
-            // Union by rank: attach shorter tree to the root of the taller tree
             if self.ranks[x_root] < self.ranks[y_root] {
                 self.parents[x_root] = y_root;
             } else {
                 self.parents[y_root] = x_root;
-                // If ranks are equal, increment the rank of the new root
                 if self.ranks[x_root] == self.ranks[y_root] {
                     self.ranks[x_root] += 1;
                 }
