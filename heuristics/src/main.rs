@@ -7,14 +7,12 @@ use serde_json::json;
 mod data_types;
 mod algorithms;
 mod gaic;
-mod mars;
 
 use data_types::{SignedGraph, IntervalStructure};
 use algorithms::{greedy_additive_edge_contraction, cc_compute_violations, cc_local_search, brute_force_interval_structure};
 use gaic::greedy_absolute_interval_contraction;
 use crate::data_types::UsefulSignedGraph;
 use crate::gaic::GaicConfig;
-use crate::mars::greedy_vertex_ordering_from_assignment;
 // TODO: Handle case where graph is not connected and few clusters are desired
 
 fn main() {
