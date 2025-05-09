@@ -107,4 +107,4 @@ To generate synthetic signed graphs from a given interval structure, you can use
 python graph_utils/generate_synthetic_interval_graph.py --intervals_file <interval_structure_file> --output_dir <output_directory>
 ```
 
-Further parameters can be set in the script itself. The generated graphs will be saved in the specified output directory.
+Further parameters can be set in the script itself.
