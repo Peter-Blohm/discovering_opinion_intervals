@@ -42,4 +42,4 @@ dependencies:
       - typing-extensions==4.13.2
       - tzdata==2025.2
       - urllib3==2.4.0
-prefix: /home/florian/miniconda3/envs/opinion_intervals
+prefix: /home/username/miniconda3/envs/opinion_intervals
