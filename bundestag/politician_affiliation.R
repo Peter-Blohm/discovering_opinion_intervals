@@ -37,6 +37,17 @@ parse_parties <- function(x) {
   out
 }
 
+
+# cluster weg, runtime dazu,
+# andere table nur interval best, vs die anderen
+# overlines weg
+
+# nochmal der table oben nur mit clustering solutions, wir sie
+# improvement over best CC solution
+
+# try deleting clusters
+
+
 parse_numbers <- function(x) {
   m <- gregexpr("\\d+", x, perl = TRUE)
   as.numeric(unlist(regmatches(x, m)))
@@ -76,7 +87,7 @@ affilliation <- affilliations %>%
     left_join(cluster_assignments_force) %>%
     mutate(fraktion = factor(fraktion,levels=c("LINKE","GRÜNE","SPD","FDP","CDU/CSU","AFD","fraktionslos","BSW")))
 
-theme <-theme_minimal() +
+theme <- theme_minimal() +
     theme(legend.position = "bottom",
           legend.direction="horizontal",
           legend.text = element_text(size = 16),  # Adjust legend text size
@@ -100,9 +111,15 @@ tbl <- table(affilliation$cluster,affilliation$fraktion)
 d <- dist(t(tbl))
 col_order <- seriate(d, method = "OLO")
 tbl[ , get_order(col_order) ]
+
+centres    <- 0:7
+band_width <- 1.4
 stripe_df <- data.frame(
   xmin = seq(-0.5, 6.5, by = 1), # change these widths
-  xmax = seq( 0.5, 7.5, by = 1)
+  xmax = seq( 0.5, 7.5, by = 1),
+  ymin = -Inf,
+  ymax =  Inf,
+  fill = rep(c("grey95","white"), lengcth.out = length(centres))
 )
 vals <- (0:7 %*% tbl) / colSums(tbl)
 
@@ -131,6 +148,164 @@ striped_bands <- function(centres      = 0:7,     # x positions to centre on
                         length.out = length(centres)/2)   # -45, +45, -45, +45 …
   )
 }
+
+
+ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
+       aes(x = cluster + tanh_attraction*0.8,
+           y = fraktion,
+           color = fraktion,
+           fill  = fraktion)) +
+
+  # 3a) booktabs stripes *behind* everything
+  geom_rect(
+    data        = stripe_df,
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+    inherit.aes = FALSE,
+    fill        = stripe_df$fill,
+    colour      = NA
+  ) +
+
+  # 3b) your violin + points
+  geom_violin(alpha = 0.3) +
+  geom_point(
+    shape    = 21,
+    color    = "black",
+    position = position_jitternormal(sd_x = 0.02, sd_y = 0.1),
+    alpha    = 0.5
+  ) +
+
+  # 3c) your colours *and* custom legend labels
+  scale_color_manual(
+    values = c(
+      LINKE = "#BE3075",
+      GRÜNE = "#409A3C",
+      SPD   = "#E3000F",
+      FDP   = "#FFED00",
+      `CDU/CSU` = "#151518",
+      AFD   = "#009EE0"
+    ),
+    labels = c(
+      LINKE    = "LINKE (Left Party)",
+      GRÜNE    = "GRÜNE (Greens)",
+      SPD      = "SPD (Social Democrats)",
+      FDP      = "FDP (Free Democrats)",
+      `CDU/CSU`= "CDU/CSU (Union)",
+      AFD      = "AFD (Alternative)"
+    )
+  ) +
+  scale_fill_manual(
+    values = c(
+      LINKE = "#BE3075",
+      GRÜNE = "#409A3C",
+      SPD   = "#E3000F",
+      FDP   = "#FFED00",
+      `CDU/CSU` = "#151518",
+      AFD   = "#009EE0"
+    ),
+    labels = c(
+      LINKE    = "LINKE (Left Party)",
+      GRÜNE    = "GRÜNE (Greens)",
+      SPD      = "SPD (Social Democrats)",
+      FDP      = "FDP (Free Democrats)",
+      `CDU/CSU`= "CDU/CSU (Union)",
+      AFD      = "AFD (Alternative)"
+    )
+  ) +
+
+  # 4) finally your labs + theme
+  labs(x = "Assigned Cluster", y = "Party Affiliation") +
+  theme + theme(panel.grid.minor   = element_blank(),
+                panel.grid.major.x = element_blank())
+
+
+# ---- custom “ticks” data ----
+# odd centres get their segment at y = -0.5 and label at -0.4,
+# even centres at y = -0.7 and label at -0.8
+ticks <- data.frame(
+  x0      = sapply(centres - 0.75,function(x)max(-.5,x)),
+  x1      = sapply(centres + 0.75,function(x)min(7.5,x)),
+  y       = ifelse(centres %% 2 == 1, -0.1, -0.4),
+  y_label = ifelse(centres %% 2 == 1, -0.3, -0.2),
+  thickness = as.numeric(ifelse(centres %% 2 == 1, 1.2, 2.5)),
+  label   = as.character(centres+1)
+)
+
+g <- ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
+       aes(x = cluster + tanh_attraction*0.8,
+           y = fraktion,
+           colour = fraktion, fill = fraktion)) +
+
+  # 1) alternating column stripes
+  geom_rect(data        = stripe_df,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            inherit.aes = FALSE,
+            fill        = stripe_df$fill,
+            colour      = NA) +
+
+  # 2) violins & points
+  geom_violin(alpha = 0.3) +
+  geom_point(shape    = 21,
+             colour  = "black",
+             position= position_jitternormal(sd_x = 0.02, sd_y = 0.1),
+             alpha   = 0.5) +
+
+  # 3) party colours + translated legend
+  scale_colour_manual(
+    values = c(
+      LINKE    = "#BE3075",
+      GRÜNE    = "#409A3C",
+      SPD      = "#E3000F",
+      FDP      = "#FFED00",
+      `CDU/CSU`= "#151518",
+      AFD      = "#009EE0"
+    ),
+    labels = c(
+      LINKE     = "LINKE (Left)",
+      GRÜNE     = "GRÜNE (Green)",
+      SPD       = "SPD (Social Democrat)",
+      FDP       = "FDP (Liberal)",
+      `CDU/CSU` = "CDU/CSU (Conservative)",
+      AFD       = "AFD (Right)"
+    )
+  ) +
+  scale_fill_manual(
+    values = c(
+      LINKE    = "#BE3075",
+      GRÜNE    = "#409A3C",
+      SPD      = "#E3000F",
+      FDP      = "#FFED00",
+      `CDU/CSU`= "#151518",
+      AFD      = "#009EE0"
+    ),
+    labels = c(
+      LINKE     = "LINKE (Left)",
+      GRÜNE     = "GRÜNE (Green)",
+      SPD       = "SPD (Social Democrat)",
+      FDP       = "FDP (Liberal)",
+      `CDU/CSU` = "CDU/CSU (Conservative)",
+      AFD       = "AFD (Right)"
+    )
+  ) +
+
+  # 4) custom segments & labels for x “ticks”
+  geom_segment(data = ticks,
+               aes(x = x0, xend = x1, y = y, yend = y, linewidth=thickness),
+               inherit.aes = FALSE,
+               ) +
+  geom_text(data = ticks,
+            aes(x = (x0 + x1)/2, y = y_label, label = label),
+            inherit.aes = FALSE,
+            size = 5) + theme + theme(axis.text       = element_blank(),
+                                      axis.text.y       = element_blank(),
+                                      axis.ticks      = element_blank(),
+                                      axis.title = element_blank(),
+                                      axis.labels.y = element_blank(),
+                                      panel.grid=element_blank(),) + scale_linewidth_identity() +guides(
+  colour = guide_legend(nrow = 1, byrow = TRUE),
+  fill   = guide_legend(nrow = 1, byrow = TRUE)
+) +
+  theme(legend.box = "horizontal")
+
 
 # ---- example plot ----
 set.seed(1)
@@ -168,8 +343,37 @@ geom_point(shape=21,color="black",position = position_jitternormal(sd_x = 0.0, s
 #   ) +
 
 
-ggplot(affilliation %>% filter(fraktion != "fraktionslos"),aes(x=cluster, color=fraktion, fill=fraktion)) +
-geom_bar(shape=21,color="black", alpha=0.5) +
+g <- ggplot(affilliation %>% filter(fraktion != "fraktionslos"),aes(x=cluster, color=fraktion, fill=fraktion)) +
+geom_bar(shape=21,color="black", alpha=0.6) +
     scale_color_manual(values=c("#BE3075", "#409A3C", "#E3000F", "#FFED00", "#151518", "#009EE0")) +
-    scale_fill_manual(values=c("#BE3075", "#409A3C", "#E3000F", "#FFED00", "#151518", "#009EE0")) + theme
+    scale_fill_manual(values=c("#BE3075", "#409A3C", "#E3000F", "#FFED00", "#151518", "#009EE0")) + theme + scale_linewidth_identity() +guides(
+  colour = guide_legend(nrow = 1, byrow = TRUE),
+  fill   = guide_legend(nrow = 1, byrow = TRUE)
+) +
+  theme(legend.box = "horizontal") + scale_x_continuous(
+  breaks     = 0:7,
+  labels     = 1:8,      # hide the default numbers
+) +
+  theme(
+    axis.ticks.x = element_line(),   # turn on tick‐marks
+  ) + scale_fill_manual(
+  values = c(
+    LINKE    = "#BE3075",
+    GRÜNE    = "#409A3C",
+    SPD      = "#E3000F",
+    FDP      = "#FFED00",
+    `CDU/CSU`= "#151518",
+    AFD      = "#009EE0"
+  ),
+  labels = c(
+    LINKE     = "LINKE (Left)",
+    GRÜNE     = "GRÜNE (Green)",
+    SPD       = "SPD (Social Democrat)",
+    FDP       = "FDP (Liberal)",
+    `CDU/CSU` = "CDU/CSU (Conservative)",
+    AFD       = "AFD (Right)"
+  )
+) + labs(y = "Number of Assigned Members", x = "Interval Index")
+
+
 
