@@ -43,7 +43,7 @@ The repository is organized as follows:
   - `data/`: Sample input files for algorithm configurations and interval structures
 - **`data/`**: Contains the bundestag dataset and is used as a working directory for other datasets.
 - **`graph_utils/`**: Python utilities for working with signed graphs, including:
-  - `convert_to_json.py`: Sctipt to Convert signed graphs from general txt format to JSON format required by the Rust implementation of our algorithms
+  - `convert_to_json.py`: Script to convert signed graphs from general txt format to JSON format required by the Rust implementation of our algorithms
   - `generate_synthetic_interval_graph.py`: Script to generate synthetic signed graphs from a given interval structure 
   - `signed_graph.py`: Class for signed graphs
   - `solve_embedding.py`: MIP formulation for optimal solutions on small graphs (requires Gurobi)
@@ -90,7 +90,7 @@ For example, to run the heuristic on the bundestag dataset with a 8 consequtivel
 
 ### Utilities
 
-**Convert Graph to Json:**
+**Convert Graph to Json:**  
 To convert a signed graph from the general txt format available on the [SNAP](https://snap.stanford.edu/data/) and [KONECT](https://konect.cc/networks/) websites to the JSON format required by the Rust implementation, you can use the following command:
 
 ```bash
@@ -99,8 +99,7 @@ python graph_utils/convert_to_json.py --type <graph_type> --data <input_file> --
 
 Where `<graph_type>` is the type of the graph (If the graph contains weighted edges that should be preserved, use `weighted` as the type. Otherwise, use `signed`).
 
-**Generate Synthetic Graphs:**
-
+**Generate Synthetic Graphs:**  
 To generate synthetic signed graphs from a given interval structure, you can use the following command:
 
 ```bash
@@ -108,3 +107,17 @@ python graph_utils/generate_synthetic_interval_graph.py --intervals_file <interv
 ```
 
 Further parameters can be set in the script itself.
+
+## Reproducing Paper Results
+
+**(Prepare Datasets:)**  
+Our novel bundestag dataset is available in the `data/` directory.
+Further instances used in the paper can be dowloaded from the from [SNAP](https://snap.stanford.edu/data/) or [KONECT](https://konect.cc/networks/) network repositories.
+The downloaded graph files can then converted to be used by our heuristic algorithms via `graph_utils/convert_to_json.py`.
+
+**Run Benchmarking:**  
+To run the benchmarking of all heuristics on all datasets and interval structures, you can use the provided bash script from the root directory of the repository:
+
+```bash
+./benchmarking/run_benchmark.sh > benchmarking/summary2.csv &
+```
