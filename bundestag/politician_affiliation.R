@@ -90,14 +90,14 @@ affilliation <- affilliations %>%
 theme <- theme_minimal() +
     theme(legend.position = "bottom",
           legend.direction="horizontal",
-          legend.text = element_text(size = 16),  # Adjust legend text size
+          legend.text = element_text(size = 10),  # Adjust legend text size
           legend.key.width = unit(0.75, "cm"),  # Adjust width of legend keys (color boxes)
           legend.key.height = unit(0.5, "cm"),
-          axis.text = element_text(size = 14),
-          axis.title = element_text(size = 16),
-          plot.title = element_text(size = 18, face = "bold"),
-          strip.text = element_text(size = 16, vjust =2), # Left-align facet labels
-          axis.text.y = element_text(size = 14, hjust = 0), # Right-align y-axis labels
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 10),
+          plot.title = element_text(size = 10, face = "bold"),
+          strip.text = element_text(size = 10, vjust =2), # Left-align facet labels
+          axis.text.y = element_text(size = 10, hjust = 0), # Right-align y-axis labels
           panel.grid.minor = element_blank(),
           # panel.grid.major = element_blank(),
           strip.placement = "outside",
@@ -224,12 +224,13 @@ ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
 ticks <- data.frame(
   x0      = sapply(centres - 0.75,function(x)max(-.5,x)),
   x1      = sapply(centres + 0.75,function(x)min(7.5,x)),
-  y       = ifelse(centres %% 2 == 1, -0.1, -0.4),
+  y       = ifelse(centres %% 2 == 1, .2, -0.7),
   y_label = ifelse(centres %% 2 == 1, -0.3, -0.2),
   thickness = as.numeric(ifelse(centres %% 2 == 1, 1.2, 2.5)),
   label   = as.character(centres+1)
 )
 
+set.seed(5)
 g <- ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
        aes(x = cluster + tanh_attraction*0.8,
            y = fraktion,
@@ -265,7 +266,7 @@ g <- ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
       SPD       = "SPD (Social Democrat)",
       FDP       = "FDP (Liberal)",
       `CDU/CSU` = "CDU/CSU (Conservative)",
-      AFD       = "AFD (Right)"
+      AFD       = "AfD (Far Right)"
     )
   ) +
   scale_fill_manual(
@@ -283,7 +284,7 @@ g <- ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
       SPD       = "SPD (Social Democrat)",
       FDP       = "FDP (Liberal)",
       `CDU/CSU` = "CDU/CSU (Conservative)",
-      AFD       = "AFD (Right)"
+      AFD       = "AfD (Far Right)"
     )
   ) +
 
@@ -295,7 +296,7 @@ g <- ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
   geom_text(data = ticks,
             aes(x = (x0 + x1)/2, y = y_label, label = label),
             inherit.aes = FALSE,
-            size = 5) + theme + theme(axis.text       = element_blank(),
+            size = 5/1.5) + theme + theme(axis.text       = element_blank(),
                                       axis.text.y       = element_blank(),
                                       axis.ticks      = element_blank(),
                                       axis.title = element_blank(),
@@ -304,7 +305,14 @@ g <- ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
   colour = guide_legend(nrow = 1, byrow = TRUE),
   fill   = guide_legend(nrow = 1, byrow = TRUE)
 ) +
-  theme(legend.box = "horizontal")
+  theme(legend.box = "horizontal") + guides(colour=guide_legend(nrow=2,byrow=TRUE))
+
+ggsave(filename = "wide_intro_plot.pdf",
+       plot     = g,        # or explicitly your ggplot object3000F", "#FFED00", "#151518", "#009EE0")) +
+       device   = cairo_pdf,          # better text handling & UTF-8 supporttheme + scale_linewidth_identity() +guides()
+       width    = 5.5*1.5,                 # in inches (adjust to taste)
+       height   = 3,                  # in inches
+       units    = "in")
 
 
 # ---- example plot ----
@@ -371,9 +379,16 @@ geom_bar(shape=21,color="black", alpha=0.6) +
     SPD       = "SPD (Social Democrat)",
     FDP       = "FDP (Liberal)",
     `CDU/CSU` = "CDU/CSU (Conservative)",
-    AFD       = "AFD (Right)"
+    AFD       = "AfD (Far Right)"
   )
-) + labs(y = "Number of Assigned Members", x = "Interval Index")
+) + labs(y = "Number of Assigned Members", x = "Interval Index") + theme(panel.grid.major.x = element_blank()) + guides(fill=guide_legend(nrow=2,byrow=TRUE))
 
 
+
+ggsave(filename = "small_bar_plot.pdf",
+       plot     = g,        # or explicitly your ggplot object3000F", "#FFED00", "#151518", "#009EE0")) +
+       device   = cairo_pdf,          # better text handling & UTF-8 supporttheme + scale_linewidth_identity() +guides()
+       width    = 5.5*1.5,                 # in inches (adjust to taste)
+       height   = 3.2,                  # in inches
+       units    = "in")
 
