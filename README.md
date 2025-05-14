@@ -49,9 +49,8 @@ The repository is organized as follows:
   - `solve_embedding.py`: MIP formulation for optimal solutions on small graphs (requires Gurobi)
   - `signed_graph_kernelization.py`: Tools for kernelization of signed graphs w.r.t. the opinion interval discovery problem
 - **`bundestag/`**: Contains code and files related to the scraping and generation of the 'Bundestag' dataset
-  - `all_votes.csv`: File containing all voting data in the German Bundestag
   - `scrape.py`: Script to scrape the voting data from the Bundestag website
-  - `generate_bundestag_graph.py`: Script to generate the signed graph from the voting data based on co-voting behavior
+  - `generate_bundestag_graph.py`: Script to generate the signed graph from the voting data obtained by `scrape.py` based on co-voting behavior
 - **`benchmarking`**: Contains code for benchmarking the heuristics
   - `run_benchmark.sh`: Bash script to benchmark all heuristics on all interval structures on all datasets for multiple seeds
   - `summary.csv`: Summary of the benchmark results - Each line represents the final output of a single run of a specific heuristic configuration on a single dataset with a single seed and a single interval structure
