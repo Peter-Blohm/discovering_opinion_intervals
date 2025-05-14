@@ -2,10 +2,12 @@ from time import sleep
 
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 from openpyxl import load_workbook
-import os
 import unicodedata
+import pandas as pd
+import glob
+import os
+import xlrd
 
 GERMAN_LETTERS = "äöüÄÖÜß"
 
@@ -30,6 +32,7 @@ def strip_non_german_accents(text: str) -> str:
 links = []
 ljnks = [1]
 count = 0
+#get a list of file links
 while len(ljnks) > 0:
     INDEX_URL = f"https://www.bundestag.de/ajax/filterlist/de/parlament/plenum/abstimmung/liste/462112-462112?limit=30&noFilterSet=true&offset={30*count}"  # "Namenslisten der Abstimmungen" section
     count = count + 1
@@ -40,57 +43,33 @@ while len(ljnks) > 0:
         if a["href"].endswith(".xlsx") or a["href"].endswith(".xls"):
             ljnks.append(a["href"])
     print(f"fetched {len(ljnks)} links")
-    sleep(1)
+    sleep(.25)
 
     links.extend(ljnks)
 
-os.makedirs("abstimmungen_xlsx", exist_ok=True)
+folder = "abstimmungen_xlsx"
+os.makedirs(folder, exist_ok=True)
 
 all_votes = []
-prayers = 0
+file_number = 0
+#download all xls(x) files
 for link in links:
-    sleep(1)
-    print(link, prayers)
-    prayers = prayers + 1
-    filename = os.path.join("abstimmungen_xlsx", os.path.basename(link))
+
+    print(link, file_number)
+    file_number = file_number + 1
+    filename = os.path.join(folder, os.path.basename(link))
 
     if not os.path.exists(filename):
+        sleep(1)
         file_resp = requests.get(link)
         with open(filename, "wb") as f:
             f.write(file_resp.content)
-
-    wb = load_workbook(filename, read_only=True)
-    ws = wb.active
-    title = ws["A1"].value
-    parts = title.split("–")
-    date_str = parts[0].replace("Abstimmung am", "").strip()
-    subject = parts[-1].replace("Abstimmung über", "").strip()
-
-    df = pd.read_excel(
-        filename, header=2, usecols=["Name", "Stimme"], engine="openpyxl"
-    )
-    df["vote_date"] = pd.to_datetime(date_str, dayfirst=True)
-    df["vote_subject"] = subject
-    all_votes.append(df)
-
-result_df = pd.concat(all_votes, ignore_index=True)
-result_df.to_excel("all_namentliche_abstimmungen.xlsx", index=False)
-
-print(
-    f"Downloaded and compiled {len(result_df)} vote records into 'all_namentliche_abstimmungen.xlsx'"
-)
-
-import pandas as pd
-import glob
-import os
-
-folder = "abstimmungen_xlsx"
 
 # pattern to match both .xls and .xlsx
 files = glob.glob(os.path.join(folder, "*.xls*"))
 
 all_dfs = []
-
+#concat them into one vote.csv
 for filepath in files:
     # read Excel
     df = pd.read_excel(filepath, dtype={"ja": int, "nein": int})
@@ -114,4 +93,4 @@ for filepath in files:
 
 # concatenate all and write out
 result = pd.concat(all_dfs, ignore_index=True)
-result.to_csv("all_votes.csv", index=False)
+result.to_csv("all_votes_with_names.csv", index=False)

@@ -197,7 +197,7 @@ def chicken_algorithm(G: SignedGraph):
 
 
 if __name__ == "__main__":
-    file = "data/bundestag_signed_graph_all_periods.txt"
+    file = "data/bundestag_signed_graph_periods_17_18_19_20.txt"
 
     graph = read_signed_graph(file)
 
