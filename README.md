@@ -56,7 +56,13 @@ The repository is organized as follows:
   - `summary.csv`: Summary of the benchmark results - Each line represents the final output of a single run of a specific heuristic configuration on a single dataset with a single seed and a single interval structure
   - `configs/`: Contains the configuration files for the heuristics
   - `structs/`: Contains the interval structures used for benchmarking
-  
+
+**Bundestag Data Copyright Notice**
+
+We note that the voting data as official works are not subject to copyright.
+The legal notice of the Bundestag website is available here: [https://web.archive.org/web/20250422230733/https://www.bundestag.de/impressum](https://web.archive.org/web/20250422230733/https://www.bundestag.de/impressum)
+
+
 ## Usage
 
 ### Heuristic Algorithms
