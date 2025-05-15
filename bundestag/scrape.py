@@ -2,12 +2,10 @@ from time import sleep
 
 import requests
 from bs4 import BeautifulSoup
-from openpyxl import load_workbook
 import unicodedata
 import pandas as pd
 import glob
 import os
-import xlrd
 
 GERMAN_LETTERS = "äöüÄÖÜß"
 
