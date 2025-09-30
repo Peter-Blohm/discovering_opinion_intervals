@@ -1,4 +1,4 @@
-library(dplyr)
+library(tidyverse)
 # summary_data <- read.csv("summary.csv")
 raw_summary_data <-  read.csv("summary_2.csv") %>%
     select(instance,config,struct,seed,best,runtime_ms) %>%
@@ -7,7 +7,7 @@ raw_summary_data <-  read.csv("summary_2.csv") %>%
            num_clusters = gsub("[a-z ]*","",config2),
            type=gsub("[0-9 ]*","",config2),
            chunks = gsub("[^0-9]","",struct),
-           algorithm = ifelse(grepl("gaia",struct), "gaia","venus"),
+           algorithm = ifelse(grepl("gaia",struct), "GAIA","VENUS"),
            config=NULL,
            config2=NULL,
            struct=NULL,
@@ -31,6 +31,7 @@ raw_summary_data <-  read.csv("summary_2.csv") %>%
              instance == "wikiconflict"       ~ "116836",
              instance == "wikisigned-k2"       ~ "138587",
            ),
+           instance_name = instance,
            instance = case_when(
              instance == "bitcoinotc"      ~ "\\Bitcoin",
              instance == "bundestag"       ~ "\\Bundestag",
@@ -49,7 +50,7 @@ raw_summary_data <-  read.csv("summary_2.csv") %>%
 # TODO pivot
 library(kableExtra)
 
-myformat <- function(x) format(round(x),big.mark="\\\\,",trim= TRUE)
+myformat <- function(x) format(round(x,digits=1),big.mark="\\\\,",trim= TRUE)
 
 raw_summary_data %>% group_by(instance,algorithm) %>%
     summarise(best_solution = min(best),
@@ -71,7 +72,7 @@ raw_summary_data %>% group_by(instance,algorithm) %>%
     as.character() %>%
     cat(sep = "\n")
 
-    print(n=32)
+    # print(n=32)
 
 
 library(data.table)
@@ -105,6 +106,7 @@ full_slashdot_data <- do.call(
 library(dplyr)
 library(tidyr)
 library(zoo)
+library(scales)
 # summary_data <- x %>% group_by(instance,type,num_clusters,chunks,algorithm) %>% summarise(min = min(best), mean = mean(best), median = median(best), sd = sd(best))
 filled_data <- full_slashdot_data %>%
     group_by(algorithm, num_clusters, type, seed, chunks) %>%
@@ -121,6 +123,7 @@ filled_data <- full_slashdot_data %>%
     ungroup()
 
 library(ggplot2)
+library(
 
 theme <- theme_minimal() +
     theme(legend.position = "bottom",
@@ -274,10 +277,90 @@ ggsave(filename = "slashdot_time_plot.pdf",
 
 
 x <- raw_summary_data %>%
-  group_by(instance,num_clusters,type,algorithm,seed,edges,vertices) %>%
+  group_by(instance_name,num_clusters,type,algorithm,seed,edges,vertices) %>%
   arrange(runtime_ms) %>%
   summarize(runtime = max(runtime_ms), objective = min(best)) %>%
-  group_by(instance,num_clusters,type,algorithm,edges,vertices) %>%
-  summarize(runtime = mean(runtime), objective = mean(objective))
+  group_by(instance_name,num_clusters,type,algorithm,edges,vertices) %>%
+  summarize(max_runtime_ms = max(runtime),mean_runtime_ms = mean(runtime), mean_objective = mean(objective))
 
-ggplot(x,aes(x=as.numeric(edges),y=runtime/1000,color=algorithm,fill=algorithm)) + geom_point() + geom_smooth(method="lm",alpha   = 0.2)
+g<-ggplot(x,aes(x=as.numeric(edges),
+             y=mean_runtime_ms,
+             color=algorithm,
+             fill=algorithm)) +
+  geom_point(aes(shape=instance_name),size=5,alpha=1) +
+  geom_smooth(method="lm",alpha   = 0.2) +
+  scale_color_manual(name= "Algorithm", values=c("GAIA"="#00BFC4","VENUS"="#F8766D")) +
+  scale_fill_manual(name="Algorithm",values=c("GAIA"="#00BFC4","VENUS"="#F8766D")) +
+  theme +
+  scale_shape_manual(name="Dataset", values=c("bitcoinotc"=1,
+                                              "bundestag"=2,
+                                              "chess"=3,
+                                              "elec"=4,
+                                              "epinions"=5,
+                                              "slashdot"=6,
+                                              "wikiconflict"=7,
+                                              "wikisigned-k2"=8),
+                     labels=c("bitcoinotc"="Bitcoin",
+                                              "bundestag"="Bundestag",
+                                              "chess"="Chess",
+                                              "elec"="WikiElec",
+                                              "epinions"="Slashdot",
+                                              "slashdot"="Epinions",
+                                              "wikiconflict"="WikiConflict",
+                                              "wikisigned-k2"="WikiSigned")) +
+    scale_x_continuous(
+      name ="Number of Edges",
+    labels = label_number(
+      scale    = 1e-3,   # divide values by 1,000
+      suffix   = "k",
+      accuracy = 1,
+    )
+  ) + scale_y_continuous(name="Runtime",
+labels = label_number(
+      scale    = 1e-3,   # divide values by 1,000
+      suffix   = "s",
+      accuracy = 1,
+    ))
+
+ggsave(filename = "average_runtime_per_instance.pdf",
+       plot     = g,        # or explicitly your ggplot object3000F", "#FFED00", "#151518", "#009EE0")) +
+       device   = cairo_pdf,          # better text handling & UTF-8 supporttheme + scale_linewidth_identity() +guides()
+       width    = 5.5*1.5,                 # in inches (adjust to taste)
+       height   = 3.5*1.5*0.7,                  # in inches
+       units    = "in")
+
+
+
+
+raw_summary_data %>%
+  group_by(instance,num_clusters,type,algorithm,seed,edges,vertices) %>%
+  arrange(runtime_ms) %>%
+  summarize(runtime_ms = round(max(runtime_ms)/1000, digits=1), objective = min(best)) %>%
+  group_by(instance,algorithm) %>%
+    summarise(best_runtime = min(runtime_ms),
+              worst_runtime = max(runtime_ms),
+              avg_runtime=mean(runtime_ms),
+              standard_dev = sd(runtime_ms)) %>%
+    pivot_wider(names_from=algorithm,values_from=c(best_runtime,worst_runtime,avg_runtime,standard_dev)) %>%
+    ungroup() %>%
+    transmute(dataset=instance,
+              GAIA_best=best_runtime_GAIA,
+              GAIA_avg=paste(myformat(avg_runtime_GAIA),"p",myformat(standard_dev_GAIA)),
+              GAIA_worst=worst_runtime_GAIA,
+              VENUS_best=best_runtime_VENUS,
+              VENUS_avg=paste(myformat(avg_runtime_VENUS),"p",myformat(standard_dev_VENUS)),
+              VENUS_worst=worst_runtime_VENUS) %>%
+kable(format    = "latex",
+          booktabs  = TRUE,
+          escape    = FALSE,
+          format.args = list(big.mark = "\\\\,"),
+          col.names = c("Dataset", "Best",   "\\text{Avg}p\\text{Std}", "Worst","Best",   "\\text{Avg}p\\text{Std}", "Worst"),
+          align     = c("l", "r", "D{p}{\\pm}{6.4}", "r", "r", "D{p}{\\pm}{6.4}", "r")) %>%
+    collapse_rows(columns = 1, row_group_label_position= "identity", latex_hline              = "none") %>%
+    add_header_above(c(" " = 1, "\\texttt{GAIA}" = 3, "\\texttt{VENUS}" = 3),escape=F) %>%
+    kable_styling(latex_options = c("hold_position")) %>%
+    as.character() %>%
+    cat(sep = "\n")
+
+    values = c(0, 1, 2, 3, 4, 5, 6, 7)
+  )
