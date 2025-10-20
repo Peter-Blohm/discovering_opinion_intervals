@@ -1,264 +1,155 @@
-import pandas as pd
-import numpy as np
-import networkx as nx
+#!/usr/bin/env python3
+"""
+Create an anonymised signed graph from Bundestag roll-call data.
+The output contains *only* integer vertex IDs; no plain-text names are ever written.
+"""
+import argparse
 import os
 import re
-import argparse
 from datetime import datetime
-from graph_utils.signed_graph import SignedGraph
 
+import networkx as nx
+import numpy as np
+import pandas as pd
+
+CUTOFF = "2025-03-25"
 BUNDESTAG_PERIODS = {
     17: ("2009-10-27", "2013-10-21"),
     18: ("2013-10-22", "2017-10-22"),
     19: ("2017-10-23", "2021-10-25"),
     20: ("2021-10-26", "2025-03-24"),
-    21: ("2025-03-25", "2100-01-01")
+    21: ("2025-03-25", "2100-01-01"),
 }
+NAME_COLS = ["Name","Vorname","Bezeichnung"]
 
-def parse_date_from_filename(filename):
-    """Extract date from filename with format YYYYMMDD_*"""
-    try:
 
-        match = re.match(r'^(\d{8}).*$', filename)
-        date_str = match.group(1)
-        return datetime.strptime(date_str, "%Y%m%d")
-    except (ValueError, IndexError):
-        return None
+def parse_date_from_filename(filename: str):
+    m = re.match(r"^(\d{8})", filename)
+    return datetime.strptime(m.group(1), "%Y%m%d") if m else None
 
-def get_bundestag_for_date(date):
-    """Determine which Bundestag period a date belongs to"""
-    for period, (start_str, end_str) in BUNDESTAG_PERIODS.items():
-        start = datetime.strptime(start_str, "%Y-%m-%d")
-        end = datetime.strptime(end_str, "%Y-%m-%d")
-        if start <= date <= end:
+
+def get_bundestag_for_date(date: datetime):
+    for period, (start_s, end_s) in BUNDESTAG_PERIODS.items():
+        if datetime.strptime(start_s, "%Y-%m-%d") <= date <= datetime.strptime(
+            end_s, "%Y-%m-%d"
+        ):
             return period
     return None
 
-def filter_votes_by_bundestag(votes_df, selected_bundestage):
-    """Filter votes dataframe to include only laws from selected Bundestag periods"""
-    if not selected_bundestage:
-        return votes_df
-        
-    file_periods = {}
-    unique_files = votes_df['filename'].unique()
-    
-    for filename in unique_files:
-        date = parse_date_from_filename(filename)
-        if date:
-            period = get_bundestag_for_date(date)
-            file_periods[filename] = period
-    
-    # Filter votes to include only selected Bundestag periods
-    filtered_files = [f for f, period in file_periods.items() 
-                     if period in selected_bundestage]
-    
-    filtered_votes = votes_df[votes_df['filename'].isin(filtered_files)]
-    
-    print(f"Filtered from {len(unique_files)} files to {len(filtered_files)} files")
-    print(f"Filtered from {len(votes_df)} votes to {len(filtered_votes)} votes")
-    
-    return filtered_votes
 
-def process_votes_to_matrix(votes_df):
-    """
-    Process votes from DataFrame into a matrix format.
-    - Converts 'ja' votes to 1 and other votes to -1
-    - Creates a matrix where rows are people (Bezeichnung) and columns are votes (filename)
-    """
-    # Convert votes to numerical values (ja=1, otherwise=-1)
-    votes_df['vote_value'] = votes_df['janein'].apply(lambda x: 1 if x == 'ja' else -1)
-    
-    # Create a pivot table with people as rows and votes as columns
-    vote_matrix = votes_df.pivot_table(
-        index='Bezeichnung',
-        columns='filename',
-        values='vote_value',
-        fill_value=0  # Fill missing values with 0
+def filter_votes_by_bundestag(votes: pd.DataFrame, selected_periods):
+    if not selected_periods:
+        return votes
+    file_period = {
+        f: get_bundestag_for_date(parse_date_from_filename(f))
+        for f in votes["filename"].unique()
+    }
+    keep = [f for f, p in file_period.items() if p in selected_periods]
+    return votes[votes["filename"].isin(keep)]
+
+
+def process_votes_to_matrix(votes: pd.DataFrame):
+    votes["vote_value"] = votes["janein"].map(lambda x: 1 if x == "ja" else -1)
+    return votes.pivot_table(
+        index="person_id", columns="filename", values="vote_value", fill_value=0
     )
-    
-    return vote_matrix
 
-def create_signed_graph(vote_matrix, agreement_threshold=0.75):
-    """
-    Create a signed graph where:
-    - Vertices are people (Bezeichnung)
-    - Positive edges connect people who agree at least threshold% of the time
-    - Negative edges connect people who agree less than (1-threshold)% of the time
-    """
-    # Create empty positive and negative graphs
-    G_plus = nx.Graph()
-    G_minus = nx.Graph()
-    
-    # Add all people as nodes to both graphs
-    people = vote_matrix.index.tolist()
-    G_plus.add_nodes_from(people)
-    G_minus.add_nodes_from(people)
-    
-    for i, person1 in enumerate(people):
-        for j, person2 in enumerate(people):
-            if i >= j:  # Skip self-comparisons and duplicates
+
+def create_signed_graph(matrix: pd.DataFrame, thr: float = 0.75):
+    g_pos, g_neg = nx.Graph(), nx.Graph()
+    ids = matrix.index.tolist()
+    g_pos.add_nodes_from(ids)
+    g_neg.add_nodes_from(ids)
+
+    mat = matrix.values
+    for i, u in enumerate(ids):
+        for j in range(i + 1, len(ids)):
+            v = ids[j]
+            v1, v2 = mat[i], mat[j]
+            mask = np.logical_and(v1 != 0, v2 != 0)
+            if mask.sum() < 3:
                 continue
-                
-            # Get voting records for both people
-            votes1 = vote_matrix.loc[person1].values
-            votes2 = vote_matrix.loc[person2].values
-            
-            valid_indices = np.logical_and(votes1 != 0, votes2 != 0)
-            if np.sum(valid_indices) >= 3:  # At least 3 common votes for meaningful agreement ratio
-                # Calculate agreement ratio
-                votes1_valid = votes1[valid_indices]
-                votes2_valid = votes2[valid_indices]
-                agreement_count = sum(votes1_valid == votes2_valid)
-                total_votes = len(votes1_valid)
-                agreement_ratio = agreement_count / total_votes
-                
-                # Add edges based on agreement ratio thresholds
-                if agreement_ratio > agreement_threshold:
-                    G_plus.add_edge(person1, person2, weight=agreement_ratio)
-                elif agreement_ratio < (1 - agreement_threshold):
-                    G_minus.add_edge(person1, person2, weight=agreement_ratio)
-    
-    # Create the signed graph using your class
-    signed_graph = SignedGraph(G_plus, G_minus)
-    
-    return signed_graph
+            agree = (v1[mask] == v2[mask]).mean()
+            if agree > thr:
+                g_pos.add_edge(u, v, weight=agree)
+            elif agree < 1 - thr:
+                g_neg.add_edge(u, v, weight=agree)
+    return {"G_plus": g_pos, "G_minus": g_neg}
 
-def create_person_id_mapping(signed_graph):
-    """
-    Creates a mapping from person names to numeric IDs.
-    Returns:
-        - id_to_person: Dictionary mapping numeric IDs to person names
-        - person_to_id: Dictionary mapping person names to numeric IDs
-    """
-    # Get all unique persons from the graph
-    all_persons = list(set(list(signed_graph.G_plus.nodes()) + list(signed_graph.G_minus.nodes())))
-    all_persons.sort()  # Sort for consistent mapping
-    
-    # Create mapping dictionaries
-    id_to_person = {i: person for i, person in enumerate(all_persons)}
-    person_to_id = {person: i for i, person in enumerate(all_persons)}
-    
-    return id_to_person, person_to_id
 
-def save_graph_to_file(edges, name, output_dir, id_mapping=None):
-    """
-    Saves a graph to a text file in the specified format.
-    If id_mapping is provided, converts person names to IDs before saving.
-    
-    Args:
-        edges: List of (u, v, sign) tuples
-        name: Base name for the output file
-        output_dir: Directory to save the file
-        id_mapping: Optional dictionary mapping person names to numeric IDs
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Save the graph with numeric IDs
-    filename = os.path.join(output_dir, f"{name}.txt")
-    with open(filename, "w") as f:
+def save_edge_list(edges, name: str, out_dir: str):
+    os.makedirs(out_dir, exist_ok=True)
+    fname = os.path.join(out_dir, f"{name}.txt")
+    with open(fname, "w") as f:
         f.write("# FromNodeId\tToNodeId\tSign\n")
-        for u, v, sign in edges:
-            if id_mapping:
-                u_id = id_mapping[u]
-                v_id = id_mapping[v]
-                f.write(f"{u_id}\t{v_id}\t{sign}\n")
-            else:
-                f.write(f"{u}\t{v}\t{sign}\n")
-    
-    # If using ID mapping, also save the mapping for reference
-    if id_mapping:
-        mapping_filename = os.path.join(output_dir, f"{name}_id_mapping.csv")
-        with open(mapping_filename, "w") as f:
-            f.write("ID,Person\n")
-            for person, person_id in id_mapping.items():
-                f.write(f"{person_id},{person}\n")
-        
-        return filename, mapping_filename
-    
-    return filename
+        for u, v, s in edges:
+            f.write(f"{u}\t{v}\t{s}\n")
+    return fname
 
-def validate_bundestage(bundestage):
-    """Validate that the provided Bundestag periods exist"""
-    valid_periods = list(BUNDESTAG_PERIODS.keys())
-    invalid_periods = [p for p in bundestage if p not in valid_periods]
-    
-    if invalid_periods:
-        raise ValueError(f"Invalid Bundestag periods: {invalid_periods}. Valid periods are: {valid_periods}")
-    
-    return True
 
-def parse_arguments():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description='Create a signed graph from Bundestag voting data')
-    parser.add_argument('--input', type=str, default="bundestag/all_votes.csv",
-                        help='Path to the CSV file with voting data')
-    parser.add_argument('--output-dir', type=str, default="bundestag/graphs",
-                        help='Directory to save the output files')
-    parser.add_argument('--bundestage', type=int, nargs='+', default=[],
-                        help='Filter by specific Bundestag periods (e.g., 17 18 19)')
-    parser.add_argument('--agreement-threshold', type=float, default=0.75,
-                        help='Threshold for agreement ratio (default: 0.75)')
-    
-    args = parser.parse_args()
-    
-    # Validate that the provided Bundestag periods exist
-    if args.bundestage:
-        validate_bundestage(args.bundestage)
-        
-    return args
+def validate_periods(periods):
+    bad = [p for p in periods if p not in BUNDESTAG_PERIODS]
+    if bad:
+        raise argparse.ArgumentTypeError(
+            f"Invalid Bundestag periods {bad}. Valid: {list(BUNDESTAG_PERIODS)}"
+        )
+    return periods
+
 
 def main():
-    # Parse command line arguments
-    args = parse_arguments()
-    
-    # Read the CSV file
-    print(f"Reading votes from {args.input}")
-    votes_df = pd.read_csv(args.input)
-    
-    # Filter by selected Bundestag periods if specified
-    if args.bundestage:
-        bundestag_str = ", ".join(str(p) for p in args.bundestage)
-        print(f"Filtering votes for Bundestag periods: {bundestag_str}")
-        votes_df = filter_votes_by_bundestag(votes_df, args.bundestage)
-        output_name = f"bundestag_signed_graph_periods_{'_'.join(str(p) for p in args.bundestage)}"
-    else:
-        print("Using all votes (no Bundestag period filter)")
-        output_name = "bundestag_signed_graph_all_periods"
-    
-    # Process votes into a matrix
-    vote_matrix = process_votes_to_matrix(votes_df)
-    print(f"Processed vote matrix with {len(vote_matrix)} people and {vote_matrix.shape[1]} votes")
-    
-    # Create signed graph
-    print(f"Creating signed graph with agreement threshold: {args.agreement_threshold}")
-    signed_graph = create_signed_graph(vote_matrix, args.agreement_threshold)
-    print(f"Created signed graph with {signed_graph.number_of_nodes()} nodes")
-    print(f"Positive edges: {signed_graph.G_plus.number_of_edges()}")
-    print(f"Negative edges: {signed_graph.G_minus.number_of_edges()}")
-    
-    # Create ID mapping
-    id_to_person, person_to_id = create_person_id_mapping(signed_graph)
-    print(f"Created ID mapping for {len(person_to_id)} persons")
-    
-    # Create list of edges
-    edges = [(u, v, 1) for u, v in signed_graph.G_plus.edges()] + \
-            [(u, v, -1) for u, v in signed_graph.G_minus.edges()]
-    
-    # Print statistics
-    print("\nGraph statistics:")
-    print(f"Number of people with an edge: {len(set([u for u, v, sign in edges] + [v for u, v, sign in edges]))}")
-    
-    # Find people who are in the vote matrix but don't have any edges
-    people_with_edges = set([u for u, v, sign in edges] + [v for u, v, sign in edges])
-    people_without_edges = set(vote_matrix.index) - people_with_edges
-    
-    print(f"\nPeople who voted but don't have connections exceeding threshold: {len(people_without_edges)}")
-    
-    # Save graph with ID mapping
-    graph_file, mapping_file = save_graph_to_file(edges, output_name, args.output_dir, person_to_id)
-    
-    print(f"\nGraph saved to {graph_file}")
-    print(f"ID mapping saved to {mapping_file}")
+    ap = argparse.ArgumentParser(description="Build an anonymised signed graph.")
+    ap.add_argument(
+        "--input",
+        default="bundestag/all_votes_name_firstname.csv",
+        help="CSV with raw voting data",
+    )
+    ap.add_argument("--output-dir", default="data", help="Output directory")
+    ap.add_argument(
+        "--bundestage",
+        type=int,
+        nargs="+",
+        default=[17, 18, 19, 20],
+        metavar="N",
+        help="Keep only these Bundestag periods",
+    )
+    ap.add_argument("--agreement-threshold", type=float, default=0.75)
+    args = ap.parse_args()
+
+    validate_periods(args.bundestage)
+
+    votes = pd.read_csv(args.input)
+    votes = filter_votes_by_bundestag(votes, args.bundestage)
+
+    unique_names = sorted(votes["Bezeichnung"].unique())
+    person_to_id = {name: idx for idx, name in enumerate(unique_names)}
+    votes["person_id"] = votes["Bezeichnung"].map(person_to_id)
+    anon_votes = votes.drop(columns=[c for c in NAME_COLS if c in votes.columns])
+
+    anon_path = os.path.join(args.output_dir, "all_votes_person_id.csv")
+    os.makedirs(args.output_dir, exist_ok=True)
+    anon_votes.to_csv(anon_path, index=False)
+    print(f"Anonymised vote table written to {anon_path}")
+
+    # --------------------------------------------------------------------- #
+    #  Graph building
+    # --------------------------------------------------------------------- #
+    matrix = process_votes_to_matrix(anon_votes)
+    sg = create_signed_graph(matrix, args.agreement_threshold)
+
+    edges = [(u, v, 1) for u, v in sg["G_plus"].edges()] + [
+        (u, v, -1) for u, v in sg["G_minus"].edges()
+    ]
+    graph_name = (
+        f"bundestag_signed_graph_periods_{'_'.join(map(str, args.bundestage))}"
+    )
+    edge_file = save_edge_list(edges, graph_name, args.output_dir)
+
+    print(
+        f"Signed edge list (|V|={matrix.shape[0]}, "
+        f"+|E|={sg['G_plus'].number_of_edges()}, "
+        f"-|E|={sg['G_minus'].number_of_edges()}) saved to {edge_file}"
+    )
+
 
 if __name__ == "__main__":
     main()

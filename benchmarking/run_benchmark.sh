@@ -3,15 +3,18 @@
 declare -a SEED
 GS=$(seq 1 50)
 
-THREADS=61
+THREADS=2
 SOLUTION_OUT_FOLDER="benchmarking/solutions"
 LOG_OUT_FOLDER="benchmarking/logs"
 CONFIG_FOLDER="benchmarking/configs/*"
 STRUCT_FOLDER="benchmarking/structs/*"
-INSTANCE_FOLDER="/Data/Interval_Development/Datasets/*.json"
+INSTANCE_FOLDER="data/*.json"
 RUST_EXE="heuristics/target/release/heuristics"
 echo "instance, struct, config, seed, edge_weight,current, best_batch, best,best_plus_negative_edge_weight, epochs_since_restart, current_temp, runtime_ms"
 # Loop through each combination of parameters
+mkdir -p benchmarking/solutions
+mkdir -p benchmarking/logs
+
 for SEED in $GS;
 do
   for INSTANCE in $INSTANCE_FOLDER
