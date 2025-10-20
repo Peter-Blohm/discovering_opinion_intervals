@@ -1,2 +1,16 @@
 /data/
 *.pyc
+bundestag/graphs/*
+*.Rmd
+Datasets/*
+.vscode/settings.json
+benchmarking/logs
+benchmarking/solutions
+benchmarking/tmp
+benchmarking/synthetic_logs
+benchmarking/solutions
+benchmarking/synthetic_solutions
+benchmarking/Synthetic_Dataset_Solutions
+benchmarking/Synthetic_Datasets
+benchmarking/synthetic_logs_2
+benchmarking/synthetic_solutions_2
