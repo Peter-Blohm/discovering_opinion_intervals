@@ -2,7 +2,7 @@ library(dplyr)
 library(tidyr)
 library(seriation)
 library(ggforce)
-library(ggpattern)
+# library(ggpattern)
 library(ggplot2)
 
 parse_parties <- function(x) {
@@ -75,8 +75,8 @@ sym_graph <- unique(rbind(graph,graph %>% mutate(from2=to,to=from, from=from2,fr
 cluster_assignments_force <- cluster_assignments %>% left_join(sym_graph, by=c("ID"="from")) %>%
     mutate(cluster = cluster.x, cluster.x=NULL) %>%
     group_by(ID,cluster) %>%
-    summarise(net_attraction = sum(cluster_attraction*ifelse(cluster.y>cluster+1,1/(cluster.y-cluster),ifelse(cluster.y<cluster,1/(cluster.y-cluster),0)))/2/sum(edges),
-              tanh_attraction = tanh(2*net_attraction))
+    summarise(net_attraction = sum(cluster_attraction*ifelse(cluster.y>cluster,1/(cluster.y-cluster),ifelse(cluster.y<cluster,1/(cluster.y-cluster),0)))/sum(edges),
+              tanh_attraction = tanh(net_attraction))
 
 
 affilliation <- affilliations %>%
@@ -170,7 +170,7 @@ ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
   geom_point(
     shape    = 21,
     color    = "black",
-    position = position_jitternormal(sd_x = 0.02, sd_y = 0.1),
+    position = position_jitternormal(sd_x = 0.005, sd_y = 0.1),
     alpha    = 0.5
   ) +
 
@@ -307,7 +307,7 @@ g <- ggplot(affilliation %>% filter(fraktion != "fraktionslos"),
 ) +
   theme(legend.box = "horizontal") + guides(colour=guide_legend(nrow=2,byrow=TRUE))
 
-ggsave(filename = "wide_intro_plot.pdf",
+ggsave(filename = "__wide_intro_plot.pdf",
        plot     = g,        # or explicitly your ggplot object3000F", "#FFED00", "#151518", "#009EE0")) +
        device   = cairo_pdf,          # better text handling & UTF-8 supporttheme + scale_linewidth_identity() +guides()
        width    = 5.5*1.5,                 # in inches (adjust to taste)
@@ -318,7 +318,7 @@ ggsave(filename = "wide_intro_plot.pdf",
 # ---- example plot ----
 set.seed(1)
 d <- data.frame(x = 0:7, y = rnorm(8))
-ggplot(affilliation %>% filter(fraktion != "fraktionslos"),aes(x=cluster+rnorm(length(cluster))*0.2,y=fraktion, color=fraktion, fill=fraktion)) +
+ggplot(affilliation %>% filter(fraktion != "fraktionslos"), aes(x=cluster+rnorm(length(cluster))*0.2, y=fraktion, color=fraktion, fill=fraktion)) +
     geom_rect_pattern(
     data            = striped_bands(),            # <- our helper
     aes(xmin = xmin, xmax = xmax,
@@ -385,7 +385,7 @@ geom_bar(shape=21,color="black", alpha=0.6) +
 
 
 
-ggsave(filename = "small_bar_plot.pdf",
+ggsave(filename = "__small_bar_plot.pdf",
        plot     = g,        # or explicitly your ggplot object3000F", "#FFED00", "#151518", "#009EE0")) +
        device   = cairo_pdf,          # better text handling & UTF-8 supporttheme + scale_linewidth_identity() +guides()
        width    = 5.5*1.5,                 # in inches (adjust to taste)
