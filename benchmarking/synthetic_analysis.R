@@ -48,14 +48,14 @@ theme <- theme_minimal() +
 #     fill   = "Algorithm",   # legend for fill
 #     colour = "Number of Batches",     # legend for outline colour
 #     y= "Normalized Objective versus Ground Truth",
-#     x= "Label Flip Probability"
+#     x= "Sign Flip Probability"
 #   )  + facet_wrap(.~m_frac,labeller = labeller(m_frac=c("0.01"="Density: 0.01","0.1"="Density: 0.1","1"="Density: 1")))
 library(lemon)
 library(ggh4x)
 
 my_labeller <- as_labeller(function(x) {
   paste0(
-    "Label Flip Probability\n",
+    "Sign Flip Probability\n",
     "Density: ", x
   )
 })
@@ -105,7 +105,7 @@ facet_rep_grid(.~m_frac,labeller =  ,repeat.tick.labels = TRUE) +
   labs(fill   = "Algorithm",   # legend for fill
        colour = "Algorithm",     # legend for outline colour
        y= "Percentage Point Δ vs Ground Truth (lower is better)",
-       x= "Label Flip Probability")
+       x= "Sign Flip Probability")
 
 ggsave(filename = "synth_objective_plot2.pdf",
        plot     = g,        # or explicitly your ggplot object3000F", "#FFED00", "#151518", "#009EE0")) +
@@ -204,7 +204,7 @@ g <- ggplot(#synthetic_data %>%
     colour = "Algorithm",     # legend for outline colour05
     fill = "Algorithm",     # legend for outline colour05
     y= "Vertex Assignment Accuracy",
-    x= "Label Flip Probability"
+    x= "Sign Flip Probability"
   ) + theme +
   theme(legend.position= c(1-0.25,1-0.175),
         legend.frame = element_rect(colour = "white")) + #.inside=c(0.5,0.51))
@@ -213,7 +213,7 @@ g <- ggplot(#synthetic_data %>%
   labs(fill   = "Algorithm",   # legend for fill
        colour = "Algorithm",     # legend for outline colour
        y= "Accuracy",
-       x= "Label Flip Probability")
+       x= "Sign Flip Probability")
 g
 
 ggsave(filename = "synth_accuracy_plot21.pdf",
@@ -235,7 +235,7 @@ geom_line(aes(x = p,
     linetype   = "Number of Batches",   # legend for fill
     colour = "Algorithm",     # legend for outline colour05
     y= "Objective versus Ground Truth",
-    x= "Label Flip Probability"
+    x= "Sign Flip Probability"
   ) + facet_wrap(.~m_frac,labeller = labeller(m_frac=c("0.01"="Density: 0.01","0.1"="Density: 0.1","1"="Density: 1"))) +
 
 
