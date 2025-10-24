@@ -123,7 +123,6 @@ filled_data <- full_slashdot_data %>%
     ungroup()
 
 library(ggplot2)
-library(
 
 theme <- theme_minimal() +
     theme(legend.position = "bottom",
@@ -361,6 +360,3 @@ kable(format    = "latex",
     kable_styling(latex_options = c("hold_position")) %>%
     as.character() %>%
     cat(sep = "\n")
-
-    values = c(0, 1, 2, 3, 4, 5, 6, 7)
-  )
