@@ -303,8 +303,8 @@ g<-ggplot(x,aes(x=as.numeric(edges),
                                               "bundestag"="Bundestag",
                                               "chess"="Chess",
                                               "elec"="WikiElec",
-                                              "epinions"="Slashdot",
-                                              "slashdot"="Epinions",
+                                              "epinions"="Epinions",
+                                              "slashdot"="Slashdot",
                                               "wikiconflict"="WikiConflict",
                                               "wikisigned-k2"="WikiSigned")) +
     scale_x_continuous(
