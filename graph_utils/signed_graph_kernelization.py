@@ -292,7 +292,11 @@ def _smaller_positive_pieces(plus: dict, alive: set, sources: list) -> list[list
     return list(pieces.values())
 
 
-def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | None]:
+def _greedy_peck(
+    kernel: SignedGraph,
+    alpha: float,
+    trace: list | None = None,
+) -> tuple[int, SignedGraph | None]:
     """
     Repeatedly remove vertices with the highest sign imbalance ratio.
     After every removal apply kernelization rules (i) and (ii).
@@ -300,6 +304,13 @@ def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | 
     This method specifically uses a heap to efficiently look up the vertex with
     the highest ratio, and applies rule (i) intermediately.
 
+    :param trace: if provided, append one snapshot per "new low" event plus
+        an endpoint, each as ``(ratio_threshold, alive_in_kernel,
+        violations_in_kernel)``. A snapshot at threshold ``r`` records the
+        state the peck would have ended in had it been run with
+        ``alpha = r`` (all paid removals with ratio >= ``r`` plus their free
+        cascades have happened; nothing with ratio < ``r`` has). Snapshots
+        are produced in descending-``r`` order.
     :return: ``(violations, remaining)`` where ``remaining`` is the induced
         signed subgraph of the surviving vertices, or ``None`` if none survive
     """
@@ -380,6 +391,7 @@ def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | 
                                 push(b)
 
     violations = 0
+    current_min = float("inf")  # smallest paid ratio seen so far
     while True:
         while free:
             u = free.pop()
@@ -395,9 +407,24 @@ def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | 
             break
         if v is None or ratio(v) < alpha:
             break
+        r = ratio(v)
+        if trace is not None and r < current_min:
+            # About to lower the running min: state right now (after all paid
+            # with ratio >= current_min plus their free cascades) is exactly
+            # what alpha = current_min would have produced.
+            prev = 1.0 if current_min == float("inf") else current_min
+            trace.append((prev, len(alive), violations))
+        current_min = min(current_min, r)
         heapq.heappop(heap)
         violations += min(dplus[v], dminus[v])
         remove_vertex(v)
+
+    if trace is not None:
+        # Endpoint: state after the peck stopped (alpha was either reached or
+        # the heap drained). The corresponding threshold is the smallest paid
+        # ratio actually used, or 1.0 if no paid removal happened.
+        end_thresh = 1.0 if current_min == float("inf") else current_min
+        trace.append((end_thresh, len(alive), violations))
 
     if not alive:
         return violations, None
@@ -415,11 +442,20 @@ def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | 
     return violations, SignedGraph(g_plus, g_minus)
 
 
-def chicken_algorithm(graph: SignedGraph, alpha: float = 0.0) -> tuple[int, list[SignedGraph]]:
+def chicken_algorithm(
+    graph: SignedGraph,
+    alpha: float = 0.0,
+    trace: list | None = None,
+) -> tuple[int, list[SignedGraph]]:
+    """If ``trace`` is provided, one per-kernel snapshot list (see
+    :func:`_greedy_peck`) is appended for each kernel processed."""
     total_violations = 0
     remaining: list[SignedGraph] = []
     for kernel in kernelise_graph(graph):
-        violations, leftover = _greedy_peck(kernel, alpha)
+        sub = [] if trace is not None else None
+        violations, leftover = _greedy_peck(kernel, alpha, trace=sub)
+        if trace is not None:
+            trace.append(sub)
         total_violations += violations
         # Should enter here only if alpha > 0.5
         if leftover is not None:
