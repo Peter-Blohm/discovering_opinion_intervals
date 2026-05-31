@@ -11,6 +11,7 @@ Usage::
     python evaluate_kernelization.py                 # all datasets
     python evaluate_kernelization.py bitcoinotc chess # a subset
     python evaluate_kernelization.py --csv out.csv    # also write a CSV table
+    python evaluate_kernelization.py --from-csv out.csv --tex table.tex  # table only
 
 """
 
@@ -38,6 +39,18 @@ DATASETS = {
 }
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Datasets")
+
+# Display name -> LaTeX name macro defined in the paper's commands.tex.
+LATEX_NAMES = {
+    "Bitcoin": r"\Bitcoin",
+    "Chess": r"\Chess",
+    "WikiElec": r"\WikiElec",
+    "Bundestag": r"\Bundestag",
+    "Slashdot": r"\Slashdot",
+    "Epinions": r"\Epinions",
+    "WikiSigned": r"\WikiSigned",
+    "WikiConflict": r"\WikiConflict",
+}
 
 
 def _stats(graph: SignedGraph) -> dict:
@@ -140,11 +153,72 @@ def _print_table(rows: list[dict]) -> None:
         )
 
 
+def _tex_int(n: int) -> str:
+    return f"{n:,}".replace(",", r"\,")
+
+def write_latex_table(rows: list[dict], path: str) -> None:
+    header_cells = [
+        r"Dataset",
+        r"Kernel $|V|$",
+        r"Kernel $|E^+|$",
+        r"Kernel $|E^-|$",
+        r"V. red.",
+        r"E. red.",
+    ]
+    lines = [
+        r"\begin{table}[t!bh]",
+        r"\centering",
+        r"\caption{Effect of the kernelization rules on the real-world datasets. "
+        r"For each instance we report the number of kernels obtained by exhaustively "
+        r"applying rules~(i)--(iv), the total number of vertices and "
+        r"positive/negative edges across all kernels, and the resulting reduction in "
+        r"the number of vertices and edges.}",
+        r"\label{tab:kernelization}",
+        r"\setlength{\tabcolsep}{12pt}",
+        r"\begin{tabular}{lrrrrrr}",
+        r"\toprule",
+        " & ".join(header_cells) + r" \\",
+        r"\midrule",
+    ]
+    for r in rows:
+        cells = [
+            LATEX_NAMES.get(r["dataset"], r["dataset"]),
+            _tex_int(int(r["kernel_V"])),
+            _tex_int(int(r["kernel_PE"])),
+            _tex_int(int(r["kernel_NE"])),
+            f"{float(r['vertex_reduction']) * 100:.1f}\\%",
+            f"{float(r['edge_reduction']) * 100:.1f}\\%",
+        ]
+        lines.append(" & ".join(cells) + r" \\")
+    lines += [
+        r"\bottomrule",
+        r"\end{tabular}",
+        r"\end{table}",
+    ]
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def read_csv_rows(path: str) -> list[dict]:
+    """Load previously-saved evaluation rows from a CSV written via ``--csv``."""
+    with open(path, newline="") as f:
+        return list(csv.DictReader(f))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("datasets", nargs="*", help="dataset keys to evaluate")
     parser.add_argument("--all", action="store_true", help="include the large datasets")
     parser.add_argument("--csv", metavar="FILE", help="write the results to a CSV file")
+    parser.add_argument(
+        "--tex", metavar="FILE", help="write a booktabs LaTeX table (summary mode only)"
+    )
+    parser.add_argument(
+        "--from-csv",
+        metavar="FILE",
+        help="build the table from a CSV written by a previous --csv run "
+        "instead of re-running the experiments",
+    )
     parser.add_argument(
         "--per-rule",
         action="store_true",
@@ -152,9 +226,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # Reuse previously-computed results: load the CSV and (re)generate the table
+    # without touching the datasets.
+    if args.from_csv:
+        rows = read_csv_rows(args.from_csv)
+        if not args.tex:
+            print("[warn] --from-csv only writes a table with --tex", file=sys.stderr)
+        else:
+            write_latex_table(rows, args.tex)
+            print(f"Wrote {args.tex}")
+        return
+
     if args.datasets:
         keys = args.datasets
-    elif args.all:
+    else:
         keys = list(DATASETS)
 
     rows = []
@@ -167,6 +252,13 @@ def main() -> None:
 
     print()
     (_print_per_rule_table if args.per_rule else _print_table)(rows)
+
+    if args.tex and rows:
+        if args.per_rule:
+            print("[skip] --tex is only supported in summary mode", file=sys.stderr)
+        else:
+            write_latex_table(rows, args.tex)
+            print(f"\nWrote {args.tex}")
 
     if args.csv and rows:
         with open(args.csv, "w", newline="") as f:

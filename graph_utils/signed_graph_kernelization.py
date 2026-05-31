@@ -231,11 +231,18 @@ def chicken_algorithm(graph: SignedGraph, alpha: float = 0.0) -> tuple[int, list
 if __name__ == "__main__":
     import os
 
-    file = "data/bundestag_signed_graph_periods_17_18_19_20.txt"
+    file = "Datasets/wikisigned-k2.txt"
     graph = read_signed_graph(file)
 
     kernels = kernelise_graph(graph)
     print(f"Number of kernels: {len(kernels)}")
+
+    for kernel in kernels:
+        print(
+            f"Kernel: {kernel.number_of_nodes()} vertices, "
+            f"{kernel.G_plus.number_of_edges()} positive edges, "
+            f"{kernel.G_minus.number_of_edges()} negative edges"
+        )
 
     if kernels:
         largest = max(kernels, key=lambda g: g.number_of_nodes())

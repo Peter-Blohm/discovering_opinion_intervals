@@ -16,3 +16,5 @@ benchmarking/synthetic_logs_2
 benchmarking/synthetic_solutions_2
 *.csv
 *.json
+*.tex
+*.lock
