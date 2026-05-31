@@ -131,8 +131,8 @@ def kernelise_graph(
     *,
     rule_i: bool = True,
     rule_ii: bool = True,
-    rule_iii: bool = True,
-    rule_iv: bool = True,
+    rule_iii: bool = False,
+    rule_iv: bool = False,
 ) -> list[SignedGraph]:
 
     kernels: list[SignedGraph] = []
@@ -426,6 +426,7 @@ def chicken_algorithm(graph: SignedGraph, alpha: float = 0.0) -> tuple[int, list
         violations, leftover = _greedy_peck(kernel, alpha)
         total_violations += violations
         if leftover is not None:
+            print("What is going on?")
             remaining.extend(kernelise_graph(leftover))
     return total_violations, remaining
 
@@ -433,7 +434,7 @@ def chicken_algorithm(graph: SignedGraph, alpha: float = 0.0) -> tuple[int, list
 if __name__ == "__main__":
     import os
 
-    file = "Datasets/wikisigned-k2.txt"
+    file = "Datasets/slashdot.txt"
     graph = read_signed_graph(file)
 
     kernels = kernelise_graph(graph)
@@ -457,3 +458,7 @@ if __name__ == "__main__":
 
         name = os.path.splitext(os.path.basename(file))[0] + "_kernel"
         save_graph_to_file(largest, name, "data")
+
+    total_violations, remaining = chicken_algorithm(graph, alpha=0.5)
+    print(f"Chicken Algorithm Total violations: {total_violations}")
+    print(f"Remaining kernels after pecking: {len(remaining)}")
