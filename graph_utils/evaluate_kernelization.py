@@ -159,22 +159,18 @@ def _tex_int(n: int) -> str:
 def write_latex_table(rows: list[dict], path: str) -> None:
     header_cells = [
         r"Dataset",
-        r"Kernel $|V|$",
-        r"Kernel $|E^+|$",
-        r"Kernel $|E^-|$",
+        r"Kernels $|V|$",
+        r"Kernels $|E^+|$",
+        r"Kernels $|E^-|$",
         r"V. red.",
         r"E. red.",
     ]
     lines = [
         r"\begin{table}[t!bh]",
         r"\centering",
-        r"\caption{Effect of the kernelization rules on the real-world datasets. "
-        r"For each instance we report the number of kernels obtained by exhaustively "
-        r"applying rules~(i)--(iv), the total number of vertices and "
-        r"positive/negative edges across all kernels, and the resulting reduction in "
-        r"the number of vertices and edges.}",
+        r"\caption{Effect of the kernelisation rules on the real-world datasets. }",
         r"\label{tab:kernelization}",
-        r"\setlength{\tabcolsep}{12pt}",
+        r"\setlength{\tabcolsep}{6pt}",
         r"\begin{tabular}{lrrrrrr}",
         r"\toprule",
         " & ".join(header_cells) + r" \\",
