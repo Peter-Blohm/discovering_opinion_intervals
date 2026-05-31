@@ -1,7 +1,6 @@
 import gurobipy as gp
 from gurobipy import GRB
 from signed_graph import SignedGraph, read_signed_graph
-from signed_graph_kernelization import kernelize_signed_graph
 
 import numpy as np
 import os
@@ -161,10 +160,6 @@ def generate_disjoint_aux_vars(permutation: np.ndarray):
 if __name__ == "__main__":
 
     file = "data/cycle.txt"
-
-    graph = read_signed_graph(file)
-
-    graphs = kernelize_signed_graph(graph, safe=True)
 
     embeddable, start, end = check_embeddability(file, None)
 

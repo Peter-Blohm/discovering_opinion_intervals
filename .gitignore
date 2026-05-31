@@ -14,3 +14,5 @@ benchmarking/Synthetic_Dataset_Solutions
 benchmarking/Synthetic_Datasets
 benchmarking/synthetic_logs_2
 benchmarking/synthetic_solutions_2
+*.csv
+*.json
