@@ -195,6 +195,36 @@ def write_latex_table(rows: list[dict], path: str) -> None:
         f.write("\n".join(lines) + "\n")
 
 
+def write_latex_per_rule_table(rows: list[dict], path: str) -> None:
+    """LaTeX table of the remaining kernel vertices after each rule is added."""
+    labels = [label for label, _ in CUMULATIVE_RULES]
+    header_cells = ["Dataset"] + [f"({l})" for l in labels]
+    lines = [
+        r"\begin{table}[t!bh]",
+        r"\centering",
+        r"\caption{Remaining kernel vertices after cumulatively applying each "
+        r"kernelisation rule. (i) removes vertices without negative edges, (ii) solves plus-components separately, "
+        r"(iii) splits at vertex separators, and (iv) imposes 3-positive-edge-connectivity.}",
+        r"\label{tab:kernelization_per_rule}",
+        r"\setlength{\tabcolsep}{6pt}",
+        r"\begin{tabular}{l" + "r" * len(labels) + "}",
+        r"\toprule",
+        " & ".join(header_cells) + r" \\",
+        r"\midrule",
+    ]
+    for r in rows:
+        cells = [LATEX_NAMES.get(r["dataset"], r["dataset"])]
+        cells += [_tex_int(int(r[l])) for l in labels]
+        lines.append(" & ".join(cells) + r" \\")
+    lines += [
+        r"\bottomrule",
+        r"\end{tabular}",
+        r"\end{table}",
+    ]
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 def read_csv_rows(path: str) -> list[dict]:
     """Load previously-saved evaluation rows from a CSV written via ``--csv``."""
     with open(path, newline="") as f:
@@ -207,7 +237,7 @@ def main() -> None:
     parser.add_argument("--all", action="store_true", help="include the large datasets")
     parser.add_argument("--csv", metavar="FILE", help="write the results to a CSV file")
     parser.add_argument(
-        "--tex", metavar="FILE", help="write a booktabs LaTeX table (summary mode only)"
+        "--tex", metavar="FILE", help="write a booktabs LaTeX table"
     )
     parser.add_argument(
         "--from-csv",
@@ -229,7 +259,8 @@ def main() -> None:
         if not args.tex:
             print("[warn] --from-csv only writes a table with --tex", file=sys.stderr)
         else:
-            write_latex_table(rows, args.tex)
+            writer = write_latex_per_rule_table if args.per_rule else write_latex_table
+            writer(rows, args.tex)
             print(f"Wrote {args.tex}")
         return
 
@@ -250,11 +281,9 @@ def main() -> None:
     (_print_per_rule_table if args.per_rule else _print_table)(rows)
 
     if args.tex and rows:
-        if args.per_rule:
-            print("[skip] --tex is only supported in summary mode", file=sys.stderr)
-        else:
-            write_latex_table(rows, args.tex)
-            print(f"\nWrote {args.tex}")
+        writer = write_latex_per_rule_table if args.per_rule else write_latex_table
+        writer(rows, args.tex)
+        print(f"\nWrote {args.tex}")
 
     if args.csv and rows:
         with open(args.csv, "w", newline="") as f:
