@@ -12,8 +12,12 @@ Projection}: it repeatedly removes the most "sign-decided" vertex from the
 graph, charging the minority of its edges as violations, while interleaving the
 exact kernelization rules (which are free). This note explains how the
 implementation in `signed_graph_kernelization.py` computes the **same answer as
-applying the kernelization at every step**, but in near-linear time
-$O((|V|+|E|)\log|V|)$ instead of the naive $O(|V|\,(|V|+|E|))$.
+applying the kernelization at every step**, but far faster: vertex *selection*
+becomes $O((|V|+|E|)\log|V|)$ instead of an $O(|V|)$ rescan per step, and the
+exact reductions are maintained incrementally instead of via a full
+re-kernelization per step. Its **worst case is still $O(|V|\,(|V|+|E|))$**
+(see \S6.4), but with far smaller constants, and it is near-linear in practice
+on the real datasets.
 
 The key idea: of the four kernelization rules, only two can change a vertex's
 signed degrees and hence the greedy's decisions — rule (i) and rule (ii) — and
@@ -187,8 +191,9 @@ piece is still expanding.** At that moment:
 * the one still expanding is the largest — we leave it partially explored, and
   it keeps the old component label.
 
-Because the smaller pieces are explored fully and the largest barely at all, the
-work of one split is $O(\text{total size of the smaller pieces})$.
+When a split *does* occur, the largest piece stays active when we stop, so it is
+explored only partially (bounded by the work spent on the smaller pieces). Thus
+the work of one split is $O(\text{total size of the smaller pieces})$.
 
 For each smaller piece we (a) assign a fresh component label, and (b) scan the
 negative edges incident to its nodes; any edge whose other endpoint is now in a
@@ -197,15 +202,47 @@ $\deg^-$ decremented, and the endpoints re-pushed (possibly triggering rule (i))
 Every cross-piece negative edge is incident to at least one *smaller* piece, so
 scanning only the smaller pieces catches them all.
 
-## 6.4 Why this is near-linear
+## 6.4 Cost of split handling — and the worst case
 
-Whenever a vertex ends up in a *smaller* piece, the size of the component it
-belongs to has at least **halved** (the smaller piece is at most half of the old
-component). A vertex can therefore be placed in a smaller piece at most
-$O(\log|V|)$ times across the whole run. Summing the per-split work
-(exploration + negative-edge scan, both proportional to the smaller pieces) gives
-a total of $O((|V|+|E|)\log|V|)$ — the classic **small-to-large** bound. Combined
-with the heap, the whole peck is $O((|V|+|E|)\log|V|)$.
+It is tempting to claim this is near-linear; it is not, in the worst case. Two
+cases must be separated.
+
+**Actual splits are small-to-large bounded.** Whenever a vertex is placed into a
+*smaller* piece, the size of the component it belongs to at least **halves**
+(the smaller piece is at most half of the old component), so this happens
+$O(\log|V|)$ times per vertex. Summing the per-split work — lockstep exploration
+of the smaller pieces, relabeling, and the negative-edge rescan, all proportional
+to the smaller pieces — gives $O((|V|+|E|)\log|V|)$ total for *all splitting
+removals*. This part is genuinely near-linear.
+
+**Non-splitting removals are not bounded this way.** If removing a vertex with
+$\ge 2$ positive neighbours does *not* disconnect the component (the neighbours
+stay joined by some other path), the lockstep keeps growing every frontier until
+they all **merge** into one piece — and confirming that merge can explore the
+*entire* component. There is no smaller side to charge the work to. A graph
+engineered so that many removals are non-splitting yet force a late merge — e.g.
+peeling interior vertices off the long parallel paths of a theta-like graph,
+where each vertex's two neighbours remain connected only the long way around —
+drives this to $\Theta(|C|)$ per removal and $\Theta(|V|\,(|V|+|E|))$ overall.
+That is asymptotically no better than recomputing the components from scratch
+each step; the gain there is only a (large) constant factor — a plain BFS over
+one component, versus biconnectivity + the signature DFS + bridge-finding of a
+full re-kernelization.
+
+So the honest bounds are: selection $O((|V|+|E|)\log|V|)$ and all split handling
+$O((|V|+|E|)\log|V|)$, but overall worst case $O(|V|\,(|V|+|E|))$ because of the
+non-splitting exploration. In practice the real datasets are far from the worst
+case — components are well-connected so neighbour frontiers meet almost
+immediately, and the graph fragments as it is pecked — and the measured peck
+times (Slashdot's 26k-vertex kernel in 5.6 s, Epinions's 20k-vertex kernel in
+13.6 s) are consistent with near-linear behaviour, not the quadratic worst case.
+
+**A guaranteed near-linear bound** would require a *decremental dynamic spanning
+forest* (Even–Shiloach / Holm–de Lichtenberg–Thorup): maintain a spanning tree so
+that deleting a non-tree positive edge is $O(1)$ — no exploration, which is
+exactly what removes the non-splitting cost — and deleting a tree edge searches
+only the smaller side for a replacement. That eliminates the worst case but is
+substantially more code, and is **not** implemented here.
 
 ---
 
@@ -244,10 +281,17 @@ This was checked two ways:
 
 | | naive (per-step rescan + re-kernelize) | this implementation |
 |---|---|---|
-| selection | $O(|V|)$ / step | $O(\log|V|)$ amortized / event |
+| selection | $O(|V|)$ / step | $O((|V|+|E|)\log|V|)$ total |
 | rule (i)  | inside $O(|V|+|E|)$ re-kernelize | $O(1)$ amortized / event |
-| rule (ii) | $O(|V|+|E|)$ / step | $O((|V|+|E|)\log|V|)$ total |
-| **overall** | $O(|V|\,(|V|+|E|))$ | $O((|V|+|E|)\log|V|)$ |
+| rule (ii), splitting | $O(|V|+|E|)$ / step | $O((|V|+|E|)\log|V|)$ total (small-to-large) |
+| rule (ii), non-splitting | $O(|V|+|E|)$ / step | up to $O(|V|+|E|)$ / step (\S6.4) |
+| **overall** | $O(|V|\,(|V|+|E|))$ | $O(|V|\,(|V|+|E|))$ worst case, near-linear in practice |
+
+The two implementations share the same worst-case order, but this one improves
+selection unconditionally, makes all *splitting* work small-to-large, and
+replaces the heavy per-step re-kernelization (biconnectivity + signature DFS +
+bridges) with a single per-component BFS — a large constant-factor win that, on
+real inputs, behaves near-linearly.
 
 Measured peck time (after a single up-front kernelization): Bitcoin 0.05 s,
 Chess 0.18 s, WikiElec 1.3 s, Slashdot (26k-vertex kernel) 5.6 s, Epinions
