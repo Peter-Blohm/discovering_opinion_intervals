@@ -131,8 +131,8 @@ def kernelise_graph(
     *,
     rule_i: bool = True,
     rule_ii: bool = True,
-    rule_iii: bool = True,
-    rule_iv: bool = True,
+    rule_iii: bool = False,
+    rule_iv: bool = False,
 ) -> list[SignedGraph]:
 
     kernels: list[SignedGraph] = []
@@ -215,7 +215,7 @@ def _smaller_positive_pieces(plus: dict, alive: set, sources: list) -> list[list
     A vertex has just been deleted from the positive graph; ``sources`` are its
     former (still-alive) positive neighbours, which together touch every piece
     the vertex's positive component may have split into. Returns the node lists
-    of all resulting pieces **except the largest** (which is left untouched).
+    of all resulting pieces **except the largest**.
 
     A lockstep BFS grows one frontier per source and merges frontiers that
     meet; it stops as soon as a single component is still expanding. That last
@@ -293,28 +293,17 @@ def _smaller_positive_pieces(plus: dict, alive: set, sources: list) -> list[list
 
 
 def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | None]:
-    """Greedily peck a single kernel; the efficient core of the chicken algorithm.
+    """
+    Repeatedly remove vertices with the highest sign imbalance ratio.
+    After every removal apply kernelization rules (i) and (ii).
 
-    Selects the most sign-imbalanced vertex with a lazy max-heap keyed by
-    ``max(deg^+, deg^-) / deg`` and maintains the signed degrees incrementally,
-    so each step touches only the removed vertex's neighbourhood instead of
-    rescanning every vertex.
-
-    The exact reductions are folded in incrementally rather than via a full
-    re-kernelization:
-
-      * Rule (i): a vertex whose negative degree reaches 0 is removed for free.
-      * Rule (ii): the positive-component labels are maintained under deletion
-        (:func:`_smaller_positive_pieces`); whenever a removal splits a positive
-        component, the negative edges that now cross between pieces are dropped
-        (satisfiable for free). This is applied at **every** step, exactly as a
-        per-step re-kernelization would, but in time bounded by the size of the
-        smaller split-off pieces. Rules (iii)/(iv) never change a degree and are
-        not needed here.
+    This method specifically uses a heap to efficiently look up the vertex with
+    the highest ratio, and applies rule (i) intermediately.
 
     :return: ``(violations, remaining)`` where ``remaining`` is the induced
         signed subgraph of the surviving vertices, or ``None`` if none survive
     """
+    # Initialise neighbour counts.
     plus = {n: set(kernel.G_plus.neighbors(n)) for n in kernel.G_plus.nodes()}
     minus = {n: set(kernel.G_minus.neighbors(n)) for n in kernel.G_minus.nodes()}
     nodes = set(plus) | set(minus)
@@ -336,7 +325,7 @@ def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | 
 
     free = [n for n in nodes if dminus[n] == 0]
     heap = [(-ratio(n), n, dplus[n], dminus[n]) for n in nodes if dminus[n] > 0]
-    heapq.heapify(heap)
+    heapq.heapify(heap) # Create heap
 
     def push(w):
         if dminus[w] == 0:
@@ -355,6 +344,8 @@ def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | 
             plus[w].discard(u)
             dplus[w] -= 1
         alive.discard(u)
+
+        # Update neighbours, implicitly apply rule (i)
         for w in pos:
             if w in alive:
                 push(w)
@@ -365,11 +356,16 @@ def _greedy_peck(kernel: SignedGraph, alpha: float) -> tuple[int, SignedGraph | 
         # had at least two positive neighbours.
         if len(pos) >= 2:
             pieces = _smaller_positive_pieces(plus, alive, pos)
+            # If G\{u} is connected, then pieces = [].
+            # Otherwise, pieces is a list of node-sets of the k-1 smallest connected components of G\{u}.
+
+            # Increase component IDs
             for piece in pieces:
                 cid = next_comp
                 next_comp += 1
                 for node in piece:
                     comp[node] = cid
+            # Remove negative edges and push affected nodes
             for piece in pieces:
                 for a in piece:
                     for b in tuple(minus[a]):
@@ -425,7 +421,10 @@ def chicken_algorithm(graph: SignedGraph, alpha: float = 0.0) -> tuple[int, list
     for kernel in kernelise_graph(graph):
         violations, leftover = _greedy_peck(kernel, alpha)
         total_violations += violations
+        # Should enter here only if alpha > 0.5
         if leftover is not None:
+            if alpha <= 0.5:
+                raise ValueError("Unexpected leftover kernel with alpha <= 0.5")
             remaining.extend(kernelise_graph(leftover))
     return total_violations, remaining
 
@@ -433,7 +432,7 @@ def chicken_algorithm(graph: SignedGraph, alpha: float = 0.0) -> tuple[int, list
 if __name__ == "__main__":
     import os
 
-    file = "Datasets/wikisigned-k2.txt"
+    file = "Datasets/slashdot.txt"
     graph = read_signed_graph(file)
 
     kernels = kernelise_graph(graph)
@@ -457,3 +456,7 @@ if __name__ == "__main__":
 
         name = os.path.splitext(os.path.basename(file))[0] + "_kernel"
         save_graph_to_file(largest, name, "data")
+
+    total_violations, remaining = chicken_algorithm(graph, alpha=0.5)
+    print(f"Chicken Algorithm Total violations: {total_violations}")
+    print(f"Remaining kernels after pecking: {len(remaining)}")

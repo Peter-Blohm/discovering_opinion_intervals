@@ -243,7 +243,7 @@ that deleting a non-tree positive edge is $O(1)$ — no exploration, which is
 exactly what removes the non-splitting cost — and deleting a tree edge searches
 only the smaller side for a replacement. That eliminates the worst case but is
 substantially more code, and is **not** implemented here.
-
+<!-- 
 ---
 
 # 7. Why the result is *exactly* the every-step answer
@@ -273,7 +273,7 @@ This was checked two ways:
 * against an obviously-correct reference that recomputes the positive components
   from scratch after every removal (same heap tie-break) — **bit-identical** on
   Bitcoin/Chess/WikiElec across $\alpha\in\{0,0.5,0.7,0.9\}$;
-* a randomized **3000-graph** stress test — **0 mismatches**.
+* a randomized **3000-graph** stress test — **0 mismatches**. -->
 
 ---
 
@@ -281,11 +281,11 @@ This was checked two ways:
 
 | | naive (per-step rescan + re-kernelize) | this implementation |
 |---|---|---|
-| selection | $O(|V|)$ / step | $O((|V|+|E|)\log|V|)$ total |
-| rule (i)  | inside $O(|V|+|E|)$ re-kernelize | $O(1)$ amortized / event |
-| rule (ii), splitting | $O(|V|+|E|)$ / step | $O((|V|+|E|)\log|V|)$ total (small-to-large) |
-| rule (ii), non-splitting | $O(|V|+|E|)$ / step | up to $O(|V|+|E|)$ / step (\S6.4) |
-| **overall** | $O(|V|\,(|V|+|E|))$ | $O(|V|\,(|V|+|E|))$ worst case, near-linear in practice |
+| selection | $O(\|V\|)$ / step | $O((\|V\|+\|E\|)\log\|V\|)$ total |
+| rule (i)  | inside $O(\|V\|+\|E\|)$ re-kernelize | $O(1)$ amortized / event |
+| rule (ii), splitting | $O(\|V\|+\|E\|)$ / step | $O((\|V\|+\|E\|)\log\|V\|)$ total (small-to-large) |
+| rule (ii), non-splitting | $O(\|V\|+\|E\|)$ / step | up to $O(\|V\|+\|E\|)$ / step (\S6.4) |
+| **overall** | $O(\|V\|\,(\|V\|+\|E\|))$ | $O(\|V\|\,(\|V\|+\|E\|))$ worst case, near-linear in practice |
 
 The two implementations share the same worst-case order, but this one improves
 selection unconditionally, makes all *splitting* work small-to-large, and
