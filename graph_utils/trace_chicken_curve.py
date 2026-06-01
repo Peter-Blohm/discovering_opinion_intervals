@@ -48,74 +48,82 @@ DATASETS = {
 }
 
 
-def aggregate(kernel_traces, kernel_initial_sizes):
+def aggregate(kernel_traces, kernel_initials):
     """Combine per-kernel snapshot lists into a single global curve.
 
-    For each kernel ``k`` with snapshot list sorted by descending threshold
-    ``r_{k,0} >= r_{k,1} >= ...``, the kernel's state at global threshold
-    ``r`` is the snapshot with the smallest ``r_{k,i} >= r`` (or the kernel's
-    full initial size with zero violations if ``r > r_{k,0}``). The global
-    state at ``r`` is the sum of per-kernel states.
+    ``kernel_initials`` is a list of ``(v, pos_edges, neg_edges)`` tuples
+    giving the starting state of each kernel before pecking. At global
+    threshold ``r`` the kernel's contribution is the snapshot with the
+    smallest per-kernel threshold ``>= r``; if ``r`` exceeds every recorded
+    threshold for a kernel, that kernel contributes its initial state with
+    zero violations.
     """
     thresholds = sorted({s[0] for sub in kernel_traces for s in sub}, reverse=True)
     if not thresholds:
-        return [(1.0, sum(kernel_initial_sizes), 0)]
+        v = sum(init[0] for init in kernel_initials)
+        ep = sum(init[1] for init in kernel_initials)
+        em = sum(init[2] for init in kernel_initials)
+        return [(1.0, v, 0, ep, em)]
 
     sorted_subs = []
     for sub in kernel_traces:
         ordered = sorted(sub, key=lambda s: -s[0])
-        keys_desc = [s[0] for s in ordered]
-        keys_asc = list(reversed(keys_desc))
-        states_asc = list(reversed([(s[1], s[2]) for s in ordered]))
+        keys_asc = list(reversed([s[0] for s in ordered]))
+        states_asc = list(reversed([(s[1], s[2], s[3], s[4]) for s in ordered]))
         sorted_subs.append((keys_asc, states_asc))
 
     points = []
     for r in thresholds:
-        total_alive = 0
-        total_viol = 0
-        for (initial, (keys_asc, states_asc)) in zip(kernel_initial_sizes, sorted_subs):
+        total_v = total_viol = total_ep = total_em = 0
+        for (init, (keys_asc, states_asc)) in zip(kernel_initials, sorted_subs):
             idx = bisect_left(keys_asc, r)
             if idx == len(keys_asc):
-                total_alive += initial
+                total_v += init[0]
+                total_ep += init[1]
+                total_em += init[2]
             else:
-                alive, viol = states_asc[idx]
-                total_alive += alive
+                v, viol, ep, em = states_asc[idx]
+                total_v += v
                 total_viol += viol
-        points.append((r, total_alive, total_viol))
+                total_ep += ep
+                total_em += em
+        points.append((r, total_v, total_viol, total_ep, total_em))
     return points
 
 
 def write_csv(points, out_path):
-    """Write the trajectory as ``alpha,alive,violations`` (one row per
-    snapshot, descending alpha). pgfplots can read this directly."""
+    """Write the trajectory as one row per snapshot (descending alpha).
+
+    Columns: alpha, alive, violations, pos_edges, neg_edges, edges
+    """
     with open(out_path, "w") as f:
-        f.write("alpha,alive,violations\n")
-        for r, alive, viol in points:
-            f.write(f"{r:.10g},{alive},{viol}\n")
+        f.write("alpha,alive,violations,pos_edges,neg_edges,edges\n")
+        for r, v, viol, ep, em in points:
+            f.write(f"{r:.10g},{v},{viol},{ep},{em},{ep + em}\n")
 
 
 def plot(name, points, out_path):
     xs = [p[0] for p in points]
-    alives = [p[1] for p in points]
+    edges = [p[3] + p[4] for p in points]
     viols = [p[2] for p in points]
 
-    fig, ax_a = plt.subplots(figsize=(8, 5))
-    ax_v = ax_a.twinx()
+    fig, ax_e = plt.subplots(figsize=(8, 5))
+    ax_v = ax_e.twinx()
 
-    line_a, = ax_a.step(xs, alives, where="post", color=COL_ALIVE, linewidth=2,
-                        label="remaining vertices")
-    line_v, = ax_v.step(xs, viols, where="post", color=COL_VIOL, linewidth=2,
-                        label="violations")
+    ax_e.step(xs, edges, where="post", color=COL_ALIVE, linewidth=2,
+              label="remaining edges")
+    ax_v.step(xs, viols, where="post", color=COL_VIOL, linewidth=2,
+              label="violations")
 
-    ax_a.set_xlabel(r"ratio threshold $\alpha$")
-    ax_a.set_ylabel("remaining vertices", color=COL_ALIVE)
+    ax_e.set_xlabel(r"ratio threshold $\alpha$")
+    ax_e.set_ylabel("remaining edges", color=COL_ALIVE)
     ax_v.set_ylabel("violations", color=COL_VIOL)
-    ax_a.tick_params(axis="y", labelcolor=COL_ALIVE)
+    ax_e.tick_params(axis="y", labelcolor=COL_ALIVE)
     ax_v.tick_params(axis="y", labelcolor=COL_VIOL)
 
-    ax_a.invert_xaxis()
-    ax_a.set_title(f"{name}")
-    ax_a.grid(True, alpha=0.3)
+    ax_e.invert_xaxis()
+    ax_e.set_title(f"{name}")
+    ax_e.grid(True, alpha=0.3)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=120)
@@ -125,7 +133,7 @@ def plot(name, points, out_path):
 def plot_grid(per_dataset, out_path, cols=4, rows=2):
     """Render one combined PNG with every dataset on a 4-col x 2-row grid.
 
-    Each subplot uses twin y-axes (lila = remaining vertices, orange =
+    Each subplot uses twin y-axes (lila = remaining edges, orange =
     violations) so the per-dataset magnitudes stay readable.
     """
     fig, axes = plt.subplots(
@@ -135,27 +143,27 @@ def plot_grid(per_dataset, out_path, cols=4, rows=2):
 
     for idx, (name, points) in enumerate(per_dataset):
         r, c = divmod(idx, cols)
-        ax_a = axes[r][c]
-        ax_v = ax_a.twinx()
+        ax_e = axes[r][c]
+        ax_v = ax_e.twinx()
 
         xs = [p[0] for p in points]
-        alives = [p[1] for p in points]
+        edges = [p[3] + p[4] for p in points]
         viols = [p[2] for p in points]
 
-        ax_a.step(xs, alives, where="post", color=COL_ALIVE, linewidth=1.6)
+        ax_e.step(xs, edges, where="post", color=COL_ALIVE, linewidth=1.6)
         ax_v.step(xs, viols, where="post", color=COL_VIOL, linewidth=1.6)
 
-        ax_a.set_title(name, fontsize=10)
-        ax_a.invert_xaxis()
-        ax_a.tick_params(axis="y", labelcolor=COL_ALIVE, labelsize=7)
+        ax_e.set_title(name, fontsize=10)
+        ax_e.invert_xaxis()
+        ax_e.tick_params(axis="y", labelcolor=COL_ALIVE, labelsize=7)
         ax_v.tick_params(axis="y", labelcolor=COL_VIOL, labelsize=7)
-        ax_a.tick_params(axis="x", labelsize=7)
-        ax_a.grid(True, alpha=0.25)
+        ax_e.tick_params(axis="x", labelsize=7)
+        ax_e.grid(True, alpha=0.25)
 
         if r == rows - 1:
-            ax_a.set_xlabel(r"ratio threshold $\alpha$", fontsize=8)
+            ax_e.set_xlabel(r"ratio threshold $\alpha$", fontsize=8)
         if c == 0:
-            ax_a.set_ylabel("vertices", color=COL_ALIVE, fontsize=8)
+            ax_e.set_ylabel("edges", color=COL_ALIVE, fontsize=8)
         if c == cols - 1:
             ax_v.set_ylabel("violations", color=COL_VIOL, fontsize=8)
 
@@ -188,8 +196,12 @@ def main():
 
         t0 = time.time()
         kernels = kernelise_graph(graph)
-        sizes = [k.number_of_nodes() for k in kernels]
-        print(f"  kernelise: {len(kernels)} kernels, {sum(sizes)} V total "
+        initials = [(k.number_of_nodes(),
+                     k.G_plus.number_of_edges(),
+                     k.G_minus.number_of_edges()) for k in kernels]
+        print(f"  kernelise: {len(kernels)} kernels, "
+              f"{sum(i[0] for i in initials)} V / "
+              f"{sum(i[1] for i in initials)}+{sum(i[2] for i in initials)} E "
               f"in {time.time() - t0:.1f}s")
 
         traces = []
@@ -203,7 +215,7 @@ def main():
         print(f"  peck: {total_violations} violations, "
               f"{sum(len(s) for s in traces)} snapshots in {time.time() - t0:.1f}s")
 
-        points = aggregate(traces, sizes)
+        points = aggregate(traces, initials)
         png = os.path.join(OUT_DIR, f"{name.lower()}_chicken_trace.png")
         plot(name, points, png)
         csv = os.path.join(PAPER_CSV_DIR, f"{name.lower()}.csv")

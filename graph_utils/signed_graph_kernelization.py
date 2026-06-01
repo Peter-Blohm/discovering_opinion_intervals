@@ -305,12 +305,12 @@ def _greedy_peck(
     the highest ratio, and applies rule (i) intermediately.
 
     :param trace: if provided, append one snapshot per "new low" event plus
-        an endpoint, each as ``(ratio_threshold, alive_in_kernel,
-        violations_in_kernel)``. A snapshot at threshold ``r`` records the
-        state the peck would have ended in had it been run with
-        ``alpha = r`` (all paid removals with ratio >= ``r`` plus their free
-        cascades have happened; nothing with ratio < ``r`` has). Snapshots
-        are produced in descending-``r`` order.
+        an endpoint, each as ``(ratio_threshold, alive_vertices,
+        violations, pos_edges, neg_edges)`` (all counts are kernel-local).
+        A snapshot at threshold ``r`` records the state the peck would have
+        ended in had it been run with ``alpha = r`` (all paid removals with
+        ratio >= ``r`` plus their free cascades have happened; nothing with
+        ratio < ``r`` has). Snapshots are produced in descending-``r`` order.
     :return: ``(violations, remaining)`` where ``remaining`` is the induced
         signed subgraph of the surviving vertices, or ``None`` if none survive
     """
@@ -324,6 +324,8 @@ def _greedy_peck(
     dplus = {n: len(plus[n]) for n in nodes}
     dminus = {n: len(minus[n]) for n in nodes}
     alive = set(nodes)
+    n_pos = sum(dplus.values()) // 2
+    n_neg = sum(dminus.values()) // 2
 
     # Positive-component labels (a kernel has a connected positive graph, so it
     # starts as a single component; deletions may split it).
@@ -345,7 +347,7 @@ def _greedy_peck(
             heapq.heappush(heap, (-ratio(w), w, dplus[w], dminus[w]))
 
     def remove_vertex(u):
-        nonlocal next_comp
+        nonlocal next_comp, n_pos, n_neg
         pos = [w for w in plus[u] if w in alive]
         neg = [w for w in minus[u] if w in alive]
         for w in neg:
@@ -354,6 +356,8 @@ def _greedy_peck(
         for w in pos:
             plus[w].discard(u)
             dplus[w] -= 1
+        n_pos -= len(pos)
+        n_neg -= len(neg)
         alive.discard(u)
 
         # Update neighbours, implicitly apply rule (i)
@@ -385,6 +389,7 @@ def _greedy_peck(
                             minus[b].discard(a)
                             dminus[a] -= 1
                             dminus[b] -= 1
+                            n_neg -= 1
                             if a in alive:
                                 push(a)
                             if b in alive:
@@ -413,7 +418,7 @@ def _greedy_peck(
             # with ratio >= current_min plus their free cascades) is exactly
             # what alpha = current_min would have produced.
             prev = 1.0 if current_min == float("inf") else current_min
-            trace.append((prev, len(alive), violations))
+            trace.append((prev, len(alive), violations, n_pos, n_neg))
         current_min = min(current_min, r)
         heapq.heappop(heap)
         violations += min(dplus[v], dminus[v])
@@ -424,7 +429,7 @@ def _greedy_peck(
         # the heap drained). The corresponding threshold is the smallest paid
         # ratio actually used, or 1.0 if no paid removal happened.
         end_thresh = 1.0 if current_min == float("inf") else current_min
-        trace.append((end_thresh, len(alive), violations))
+        trace.append((end_thresh, len(alive), violations, n_pos, n_neg))
 
     if not alive:
         return violations, None
