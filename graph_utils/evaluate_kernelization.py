@@ -198,22 +198,23 @@ def write_latex_table(rows: list[dict], path: str) -> None:
 def write_latex_per_rule_table(rows: list[dict], path: str) -> None:
     """LaTeX table of the remaining kernel vertices after each rule is added."""
     labels = [label for label, _ in CUMULATIVE_RULES]
-    header_cells = ["Dataset"] + [f"({l})" for l in labels]
+    header_cells = ["Dataset", r"$\abs{V}$"] + [f"({l})" for l in labels]
     lines = [
         r"\begin{table}[t!bh]",
         r"\centering",
         r"\caption{Remaining kernel vertices after cumulatively applying each "
-        r"kernelisation rule. (i) removes vertices without negative edges, (ii) solves plus-components separately, "
+        r"kernelisation rule, starting from the original number of vertices $\abs{V}$. "
+        r"(i) removes vertices without negative edges, (ii) solves plus-components separately, "
         r"(iii) splits at vertex separators, and (iv) imposes 3-positive-edge-connectivity.}",
         r"\label{tab:kernelization_per_rule}",
         r"\setlength{\tabcolsep}{6pt}",
-        r"\begin{tabular}{l" + "r" * len(labels) + "}",
+        r"\begin{tabular}{l" + "r" * (len(labels) + 1) + "}",
         r"\toprule",
         " & ".join(header_cells) + r" \\",
         r"\midrule",
     ]
     for r in rows:
-        cells = [LATEX_NAMES.get(r["dataset"], r["dataset"])]
+        cells = [LATEX_NAMES.get(r["dataset"], r["dataset"]), _tex_int(int(r["orig_V"]))]
         cells += [_tex_int(int(r[l])) for l in labels]
         lines.append(" & ".join(cells) + r" \\")
     lines += [
