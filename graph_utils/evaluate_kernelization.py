@@ -157,17 +157,6 @@ def _tex_int(n: int) -> str:
     return f"{n:,}".replace(",", r"\,")
 
 def write_latex_table(rows: list[dict], path: str) -> None:
-    header_cells = [
-        r"Dataset",
-        r"$|V|$",
-        r"$|E^+|$",
-        r"$|E^-|$",
-        r"Kernels $|V|$",
-        r"Kernels $|E^+|$",
-        r"Kernels $|E^-|$",
-        r"V. red.",
-        r"E. red.",
-    ]
     lines = [
         r"\begin{table}[t!bh]",
         r"\centering",
@@ -177,7 +166,10 @@ def write_latex_table(rows: list[dict], path: str) -> None:
         r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{lrrrrrrrr}",
         r"\toprule",
-        " & ".join(header_cells) + r" \\",
+        r" & \multicolumn{3}{c}{Original graph} & \multicolumn{3}{c}{Kernels} "
+        r"& \multicolumn{2}{c}{Reduction} \\",
+        r"\cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-9}",
+        r"Dataset & $|V|$ & $|E^+|$ & $|E^-|$ & $|V|$ & $|E^+|$ & $|E^-|$ & $|V|$ & $|E|$ \\",
         r"\midrule",
     ]
     for r in rows:
