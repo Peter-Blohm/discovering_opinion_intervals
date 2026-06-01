@@ -159,6 +159,9 @@ def _tex_int(n: int) -> str:
 def write_latex_table(rows: list[dict], path: str) -> None:
     header_cells = [
         r"Dataset",
+        r"$|V|$",
+        r"$|E^+|$",
+        r"$|E^-|$",
         r"Kernels $|V|$",
         r"Kernels $|E^+|$",
         r"Kernels $|E^-|$",
@@ -171,7 +174,8 @@ def write_latex_table(rows: list[dict], path: str) -> None:
         r"\caption{Effect of the kernelisation rules on the real-world datasets. }",
         r"\label{tab:kernelization}",
         r"\setlength{\tabcolsep}{6pt}",
-        r"\begin{tabular}{lrrrrrr}",
+        r"\resizebox{\textwidth}{!}{%",
+        r"\begin{tabular}{lrrrrrrrr}",
         r"\toprule",
         " & ".join(header_cells) + r" \\",
         r"\midrule",
@@ -179,6 +183,9 @@ def write_latex_table(rows: list[dict], path: str) -> None:
     for r in rows:
         cells = [
             LATEX_NAMES.get(r["dataset"], r["dataset"]),
+            _tex_int(int(r["orig_V"])),
+            _tex_int(int(r["orig_PE"])),
+            _tex_int(int(r["orig_NE"])),
             _tex_int(int(r["kernel_V"])),
             _tex_int(int(r["kernel_PE"])),
             _tex_int(int(r["kernel_NE"])),
@@ -188,7 +195,8 @@ def write_latex_table(rows: list[dict], path: str) -> None:
         lines.append(" & ".join(cells) + r" \\")
     lines += [
         r"\bottomrule",
-        r"\end{tabular}",
+        r"\end{tabular}%",
+        r"}",
         r"\end{table}",
     ]
     with open(path, "w") as f:
