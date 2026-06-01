@@ -12,6 +12,8 @@ free cascades have happened; nothing strictly below has.
 
 # TODO: This code was skimmed but not checked in great detail.
 
+import argparse
+import csv as _csv
 import os
 import sys
 import time
@@ -21,6 +23,22 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
+
+
+def _abbrev(x, _pos=None):
+    """Format axis ticks as 1.2k / 3.4M / 5G (no trailing zeros)."""
+    if x == 0:
+        return "0"
+    ax = abs(x)
+    for divisor, suffix in ((1e9, "G"), (1e6, "M"), (1e3, "k")):
+        if ax >= divisor:
+            v = x / divisor
+            return f"{v:.1f}".rstrip("0").rstrip(".") + suffix
+    return f"{x:g}"
+
+
+_FMT = FuncFormatter(_abbrev)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -31,7 +49,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "Datasets")
 OUT_DIR = os.path.join(ROOT, "benchmarking", "figures")
 PAPER_CSV_DIR = "/home/florian/Development/work/6711021c4eac0070fc0ee13e/MLG@ECML2026/data/chicken_traces"
-PAPER_FIG_PATH = "/home/florian/Development/work/6711021c4eac0070fc0ee13e/MLG@ECML2026/figures/chicken_trajectories.png"
+PAPER_FIG_PATH = "/home/florian/Development/work/6711021c4eac0070fc0ee13e/MLG@ECML2026/figures/chicken_trajectories.pdf"
 
 COL_ALIVE = "#9467bd"   # lila
 COL_VIOL = "#e66100"    # orange
@@ -122,6 +140,8 @@ def plot(name, points, out_path):
     ax_v.tick_params(axis="y", labelcolor=COL_VIOL)
 
     ax_e.invert_xaxis()
+    ax_e.yaxis.set_major_formatter(_FMT)
+    ax_v.yaxis.set_major_formatter(_FMT)
     ax_e.set_title(f"{name}")
     ax_e.grid(True, alpha=0.3)
 
@@ -137,7 +157,15 @@ def plot_grid(per_dataset, out_path, cols=4, rows=2):
     violations) so the per-dataset magnitudes stay readable.
     """
     fig, axes = plt.subplots(
-        rows, cols, figsize=(cols * 3.4, rows * 2.4), constrained_layout=True
+        rows, cols, figsize=(cols * 3.6, rows * 2.4),
+    )
+    # Tight outer margins but enough left/right room for the rotated y-labels
+    # plus their tick numbers; modest column/row gaps.
+
+    fig.subplots_adjust(
+        left=0.05, right=0.95,
+        top=0.93, bottom=0.13,
+        wspace=0.35, hspace=0.40,
     )
     axes = axes.reshape(rows, cols)
 
@@ -153,19 +181,23 @@ def plot_grid(per_dataset, out_path, cols=4, rows=2):
         ax_e.step(xs, edges, where="post", color=COL_ALIVE, linewidth=1.6)
         ax_v.step(xs, viols, where="post", color=COL_VIOL, linewidth=1.6)
 
-        ax_e.set_title(name, fontsize=10)
+        ax_e.set_title(name, fontsize=12)
         ax_e.invert_xaxis()
-        ax_e.tick_params(axis="y", labelcolor=COL_ALIVE, labelsize=7)
-        ax_v.tick_params(axis="y", labelcolor=COL_VIOL, labelsize=7)
-        ax_e.tick_params(axis="x", labelsize=7)
+        ax_e.yaxis.set_major_formatter(_FMT)
+        ax_v.yaxis.set_major_formatter(_FMT)
+        ax_e.tick_params(axis="y", labelcolor=COL_ALIVE, labelsize=10)
+        ax_v.tick_params(axis="y", labelcolor=COL_VIOL, labelsize=10)
+        ax_e.tick_params(axis="x", labelsize=10)
         ax_e.grid(True, alpha=0.25)
 
         if r == rows - 1:
-            ax_e.set_xlabel(r"ratio threshold $\alpha$", fontsize=8)
+            ax_e.set_xlabel(r"ratio threshold $\alpha$", fontsize=11)
         if c == 0:
-            ax_e.set_ylabel("edges", color=COL_ALIVE, fontsize=8)
+            ax_e.set_ylabel("remaining edges", color=COL_ALIVE, fontsize=11,
+                            labelpad=8)
         if c == cols - 1:
-            ax_v.set_ylabel("violations", color=COL_VIOL, fontsize=8)
+            ax_v.set_ylabel("violations", color=COL_VIOL, fontsize=11,
+                            labelpad=8)
 
     # Hide unused panels (if any).
     for k in range(len(per_dataset), rows * cols):
@@ -176,7 +208,57 @@ def plot_grid(per_dataset, out_path, cols=4, rows=2):
     plt.close(fig)
 
 
+def read_csv_points(path):
+    """Reconstruct the ``(alpha, alive, viol, pos_edges, neg_edges)`` tuples
+    from a CSV previously written by :func:`write_csv`."""
+    pts = []
+    with open(path) as f:
+        for row in _csv.DictReader(f):
+            pts.append((
+                float(row["alpha"]),
+                int(row["alive"]),
+                int(row["violations"]),
+                int(row["pos_edges"]),
+                int(row["neg_edges"]),
+            ))
+    return pts
+
+
+def regenerate_from_csv():
+    """Rebuild the combined grid PDF from cached per-dataset CSVs.
+
+    No chicken peck, no graph loading. Use this when iterating on plot
+    cosmetics.
+    """
+    os.makedirs(os.path.dirname(PAPER_FIG_PATH), exist_ok=True)
+    grid = []
+    for name in DATASETS:
+        p = os.path.join(PAPER_CSV_DIR, f"{name.lower()}.csv")
+        if not os.path.exists(p):
+            print(f"[skip] {name}: cached CSV missing at {p}")
+            continue
+        grid.append((name, read_csv_points(p)))
+    if not grid:
+        print("no cached CSVs found; run without --from-csv first")
+        return
+    plot_grid(grid, PAPER_FIG_PATH)
+    print(f"wrote combined grid figure to {PAPER_FIG_PATH}")
+
+
 def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--from-csv",
+        action="store_true",
+        help="Skip the chicken peck and rebuild the grid PDF from the cached "
+             "per-dataset CSVs under PAPER_CSV_DIR. Useful when iterating on "
+             "matplotlib styling.",
+    )
+    args = ap.parse_args()
+    if args.from_csv:
+        regenerate_from_csv()
+        return
+
     os.makedirs(OUT_DIR, exist_ok=True)
     os.makedirs(PAPER_CSV_DIR, exist_ok=True)
     os.makedirs(os.path.dirname(PAPER_FIG_PATH), exist_ok=True)
