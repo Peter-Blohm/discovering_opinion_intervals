@@ -18,3 +18,4 @@ benchmarking/synthetic_solutions_2
 *.json
 *.tex
 *.lock
+*.png
