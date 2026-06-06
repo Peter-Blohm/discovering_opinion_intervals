@@ -13,8 +13,10 @@ The paper builds on our previous work, **"Discovering Opinion Intervals from Con
 
 ### Rust Installation
 
-Our main heuristic are implemented in the Rust programming language.  
-To install Rust, follow the instructions on [https://rustup.rs/](https://rustup.rs/).
+The pruning rules and relaxed-pruning heuristic are pure Python and need no
+compilation. Rust is only required for the downstream `GAIA`/`VENUS` solvers
+(used in RQ3). To install Rust, follow the instructions on
+[https://rustup.rs/](https://rustup.rs/).
 
 ### Conda Environment Setup 
 
@@ -45,7 +47,7 @@ To set up the license locally, follow the steps on this website:
 
 The repository is organized as follows:
 
-- **`heuristics/`**: Contains the Rust implementation of our main heuristics for the opinion interval discovery problem.
+- **`heuristics/`**: Contains the Rust implementation of the GAIA/VENUS heuristics (from our previous work), used as the downstream solver.
   - `src/`: Source code for the heuristics
   - `data/`: Sample input files for algorithm configurations and interval structures
 - **`data/`**: Contains the bundestag dataset and is used as a working directory for other datasets.
@@ -78,47 +80,49 @@ The legal notice of the Bundestag website is available here: [https://web.archiv
 
 ## Usage
 
-### Heuristic Algorithms
+The pruning rules and the relaxed-pruning heuristic live in
+`graph_utils/signed_graph_kernelization.py` and apply to any `SignedGraph`. Run
+the snippets below with `graph_utils/` on your Python path (e.g. `PYTHONPATH=graph_utils`).
 
-To run the heuristic algorithms, the Rust code needs to be compiled first.
-To compile the Rust code, navigate to the `heuristics/` directory and run the following command:
+**Exact pruning** — `kernelise_graph` decomposes the instance into independent kernels without losing optimality:
 
-```bash
-cargo build --release
+```python
+from signed_graph import read_signed_graph
+from signed_graph_kernelization import kernelise_graph, chicken_algorithm
+
+graph = read_signed_graph("Datasets/bitcoinotc.txt")
+kernels = kernelise_graph(graph, rule_iii=True, rule_iv=True)  # rules i, ii on by default
 ```
 
-This will create an executable file in the `target/release/` directory.
-To run the heuristic algorithms, the following command can be used from the root directory of the repository:
+**Relaxed pruning** — `chicken_algorithm(graph, alpha)` greedily removes sign-imbalanced vertices, returning the violation count and any residual kernels. `alpha=1.0` is exact pruning (no violations); `alpha=0.5` peels the graph down to a full heuristic solution; values in between trade size reduction for violations:
 
-```bash
-./heuristics/target/release/heuristics <instance_file> <interval_structure_file> <config_file> <output_file> gaic --seed <seed>
+```python
+violations, residual_kernels = chicken_algorithm(graph, alpha=0.8)
 ```
 
-Where:
-- `<instance_file>`: Path to the input file containing the signed graph
-- `<interval_structure_file>`: Path to the file containing the interval structure
-- `<config_file>`: Path to the configuration file for the heuristic
-- `<output_file>`: Path to the output file where the results will be saved
-
-For example, to run the heuristic on the bundestag dataset with a 8 consequtively overlapping intervals and a simulated annealing configuration, you can use the following command:
+**Downstream solver** — residual kernels can be solved with the Rust `GAIA`/`VENUS` heuristics from our previous work. Build once with `cd heuristics && cargo build --release`, then:
 
 ```bash
-./heuristics/target/release/heuristics data/bundestag_signed.json benchmarking/structs/intervals8.json benchmarking/configs/config_venus_chunks_10.json data/bundestag_signed_solution.json gaic --seed 42
+./heuristics/target/release/heuristics <instance.json> <intervals.json> <config.json> <output.json> gaic --seed <seed>
 ```
+
+e.g. `... data/bundestag_signed.json benchmarking/structs/intervals8.json benchmarking/configs/config_venus_chunks_10.json data/out.json gaic --seed 42`. The full "relaxed pruning → GAIA/VENUS" pipeline is automated by `benchmarking/run_chicken_heuristic.py` (see [Reproducing Paper Results](#reproducing-paper-results)).
 
 ### Utilities
 
-**Convert Graph to Json:**  
-To convert a signed graph from the general txt format available on the [SNAP](https://snap.stanford.edu/data/) and [KONECT](https://konect.cc/networks/) websites to the JSON format required by the Rust implementation, you can use the following command:
+**Convert Graph to JSON:**  
+The Rust solvers consume signed graphs in JSON. To convert a graph from the txt
+format used by the [SNAP](https://snap.stanford.edu/data/) and
+[KONECT](https://konect.cc/networks/) repositories:
 
 ```bash
 python graph_utils/convert_to_json.py --type <graph_type> --data <input_file> --output <output_base_name>
 ```
 
-Where `<graph_type>` is the type of the graph (If the graph contains weighted edges that should be preserved, use `weighted` as the type. Otherwise, use `signed`).
+Where `<graph_type>` is `weighted` (to preserve weighted edges) or `signed` (otherwise).
 
 **Generate Synthetic Graphs:**  
-To generate synthetic signed graphs from a given interval structure, you can use the following command:
+To generate synthetic signed graphs from a given interval structure:
 
 ```bash
 python graph_utils/generate_synthetic_interval_graph.py --intervals_file <interval_structure_file> --output_dir <output_directory>
