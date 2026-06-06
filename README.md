@@ -1,6 +1,13 @@
-# Code for the paper "Discovering Opinion Intervals from Conflicts in Signed Graphs"
+# Code for "On the Best Interval Approximation Problem"
 
-This repository contains the implementation and evaluation code for the paper "Discovering Opinion Intervals from Conflicts in Signed Graphs".
+This repository contains the implementation and evaluation code for the paper **"On the Best Interval Approximation Problem"**.
+
+The paper builds on our previous work, **"Discovering Opinion Intervals from Conflicts in Signed Graphs"** (NeurIPS 2025). New code on this branch:
+
+- **`graph_utils/signed_graph_kernelization.py`** — the four exact pruning rules and the relaxed-pruning heuristic.
+- **`graph_utils/evaluate_kernelization.py`** — measures how much the exact pruning rules reduce each real-world dataset (paper RQ1, Table 1).
+- **`graph_utils/trace_chicken_curve.py`** — traces the relaxed-pruning trajectory (remaining size vs. introduced violations) as a function of the approximation threshold `alpha` (paper RQ2, relaxed-pruning trajectory figure).
+- **`benchmarking/run_chicken_heuristic.py`** — runs relaxed pruning at varying `alpha` and then solves the residual graphs with the `GAIA`/`VENUS` heuristics, recording violations and runtimes (paper RQ3).
 
 ## Installation Instructions
 
@@ -47,7 +54,10 @@ The repository is organized as follows:
   - `generate_synthetic_interval_graph.py`: Script to generate synthetic signed graphs from a given interval structure 
   - `signed_graph.py`: Class for signed graphs
   - `solve_embedding.py`: MIP formulation for optimal solutions on small graphs (requires Gurobi)
-  - `signed_graph_kernelization.py`: Tools for kernelization of signed graphs w.r.t. the opinion interval discovery problem
+  - `signed_graph_kernelization.py`: The pruning rules (exact *kernelization* via `kernelise_graph`) and the relaxed-pruning heuristic (`chicken_algorithm`) for BIA
+  - `chicken_algorithm.md`: Write-up of the relaxed-pruning ("chicken") algorithm and its incremental implementation
+  - `evaluate_kernelization.py`: Measures the size reduction of the exact pruning rules on each dataset (RQ1)
+  - `trace_chicken_curve.py`: Traces the relaxed-pruning size–violation trajectory over the approximation threshold `alpha` (RQ2)
 - **`bundestag/`**: Contains code and files related to the scraping and generation of the 'Bundestag' dataset
   - `scrape.py`: Script to scrape the voting data from the Bundestag website
   - `generate_bundestag_graph.py`: Script to generate the signed graph from the voting data obtained by `scrape.py` based on co-voting behavior
@@ -56,6 +66,9 @@ The repository is organized as follows:
   - `summary.csv`: Summary of the benchmark results - Each line represents the final output of a single run of a specific heuristic configuration on a single dataset with a single seed and a single interval structure
   - `configs/`: Contains the configuration files for the heuristics
   - `structs/`: Contains the interval structures used for benchmarking
+  - `run_chicken_heuristic.py`: Runs relaxed pruning at varying thresholds `alpha`, then solves the residual graphs with `GAIA`/`VENUS` (RQ3)
+  - `make_chicken_heuristic_table.py`: Renders the LaTeX results table from the RQ3 benchmark summary
+  - `plot_chicken_heuristic_runtime.py`: Plots total relaxed-pruning + solver runtime per dataset against `alpha` (RQ3)
 
 **Bundestag Data Copyright Notice**
 
@@ -120,9 +133,23 @@ Our novel bundestag dataset is available in the `data/` directory.
 Further instances used in the paper can be dowloaded from the from [SNAP](https://snap.stanford.edu/data/) or [KONECT](https://konect.cc/networks/) network repositories.
 The downloaded graph files can then converted to be used by our heuristic algorithms via `graph_utils/convert_to_json.py`.
 
-**Run Benchmarking:**  
-To run the benchmarking of all heuristics on all datasets and interval structures, you can use the provided bash script from the root directory of the repository:
+**RQ1 — Size reduction from the exact pruning rules (Table 1):**
 
 ```bash
-./benchmarking/run_benchmark.sh > benchmarking/summary2.csv &
+python graph_utils/evaluate_kernelization.py --csv kernelization.csv --tex table.tex
+```
+
+**RQ2 — Relaxed-pruning trajectory (size vs. violations over `alpha`):**
+
+```bash
+python graph_utils/trace_chicken_curve.py
+```
+
+**RQ3 — Relaxed pruning combined with the `GAIA`/`VENUS` solvers (results table and runtime figure):**
+
+```bash
+python benchmarking/run_chicken_heuristic.py
+
+python benchmarking/make_chicken_heuristic_table.py -o table_rp.tex
+python benchmarking/plot_chicken_heuristic_runtime.py
 ```

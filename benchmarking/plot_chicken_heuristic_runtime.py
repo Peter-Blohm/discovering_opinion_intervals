@@ -8,6 +8,7 @@ matches the trace figure). y-axis is linear and per-subplot so each
 dataset's scale is its own.
 """
 
+import argparse
 import csv
 import os
 import statistics
@@ -22,9 +23,10 @@ from matplotlib.ticker import FuncFormatter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_CSV = os.path.join(ROOT, "benchmarking", "chicken_heuristic", "summary.csv")
-PAPER_FIG_PATH = (
-    "/home/florian/Development/work/6711021c4eac0070fc0ee13e/"
-    "MLG@ECML2026/figures/chicken_heuristic_runtime.pdf"
+# Figure defaults to living next to the other generated figures inside the
+# repository; override with --output to write into a paper's source tree.
+DEFAULT_FIG_PATH = os.path.join(
+    ROOT, "benchmarking", "figures", "chicken_heuristic_runtime.pdf"
 )
 
 DATASETS_ORDER = [
@@ -138,13 +140,18 @@ def plot_grid(totals, out_path, cols=4, rows=2):
 
 
 def main():
-    csv_path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_CSV
-    out_path = sys.argv[2] if len(sys.argv) > 2 else PAPER_FIG_PATH
-    totals = load(csv_path)
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--csv", default=DEFAULT_CSV,
+                    help=f"Chicken+heuristic summary CSV (default: {DEFAULT_CSV}).")
+    ap.add_argument("-o", "--output", default=DEFAULT_FIG_PATH,
+                    help=f"Output figure path (default: {DEFAULT_FIG_PATH}).")
+    args = ap.parse_args()
+
+    totals = load(args.csv)
     if not totals:
-        sys.exit(f"no rows in {csv_path}")
-    plot_grid(totals, out_path)
-    print(f"wrote {out_path}")
+        sys.exit(f"no rows in {args.csv}")
+    plot_grid(totals, args.output)
+    print(f"wrote {args.output}")
 
 
 if __name__ == "__main__":

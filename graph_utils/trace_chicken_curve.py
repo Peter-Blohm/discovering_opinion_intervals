@@ -8,9 +8,11 @@ ratio threshold ``alpha``, with twin y-axes.
 The curve at threshold ``alpha = r`` is what you would obtain by running
 chicken with that ``alpha``: all paid removals with ratio >= r plus their
 free cascades have happened; nothing strictly below has.
-"""
 
-# TODO: This code was skimmed but not checked in great detail.
+Outputs (all under the repository by default, override on the command line):
+- one per-dataset PNG and CSV under ``benchmarking/figures/chicken_traces/``
+- one combined grid figure ``benchmarking/figures/chicken_trajectories.pdf``
+"""
 
 import argparse
 import csv as _csv
@@ -48,8 +50,9 @@ from signed_graph_kernelization import _greedy_peck, kernelise_graph
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "Datasets")
 OUT_DIR = os.path.join(ROOT, "benchmarking", "figures")
-PAPER_CSV_DIR = "/home/florian/Development/work/6711021c4eac0070fc0ee13e/MLG@ECML2026/data/chicken_traces"
-PAPER_FIG_PATH = "/home/florian/Development/work/6711021c4eac0070fc0ee13e/MLG@ECML2026/figures/chicken_trajectories.pdf"
+
+DEFAULT_CSV_DIR = os.path.join(OUT_DIR, "chicken_traces")
+DEFAULT_FIG_PATH = os.path.join(OUT_DIR, "chicken_trajectories.pdf")
 
 COL_ALIVE = "#9467bd"   # lila
 COL_VIOL = "#e66100"    # orange
@@ -224,16 +227,16 @@ def read_csv_points(path):
     return pts
 
 
-def regenerate_from_csv():
+def regenerate_from_csv(csv_dir, fig_path):
     """Rebuild the combined grid PDF from cached per-dataset CSVs.
 
     No chicken peck, no graph loading. Use this when iterating on plot
     cosmetics.
     """
-    os.makedirs(os.path.dirname(PAPER_FIG_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(fig_path) or ".", exist_ok=True)
     grid = []
     for name in DATASETS:
-        p = os.path.join(PAPER_CSV_DIR, f"{name.lower()}.csv")
+        p = os.path.join(csv_dir, f"{name.lower()}.csv")
         if not os.path.exists(p):
             print(f"[skip] {name}: cached CSV missing at {p}")
             continue
@@ -241,30 +244,42 @@ def regenerate_from_csv():
     if not grid:
         print("no cached CSVs found; run without --from-csv first")
         return
-    plot_grid(grid, PAPER_FIG_PATH)
-    print(f"wrote combined grid figure to {PAPER_FIG_PATH}")
+    plot_grid(grid, fig_path)
+    print(f"wrote combined grid figure to {fig_path}")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
+        "--data-dir", default=DATA_DIR,
+        help=f"Directory holding the dataset .txt files (default: {DATA_DIR}).",
+    )
+    ap.add_argument(
+        "--csv-dir", default=DEFAULT_CSV_DIR,
+        help=f"Directory for the per-dataset trajectory CSVs "
+             f"(default: {DEFAULT_CSV_DIR}).",
+    )
+    ap.add_argument(
+        "--fig", default=DEFAULT_FIG_PATH,
+        help=f"Path for the combined grid figure (default: {DEFAULT_FIG_PATH}).",
+    )
+    ap.add_argument(
         "--from-csv",
         action="store_true",
-        help="Skip the chicken peck and rebuild the grid PDF from the cached "
-             "per-dataset CSVs under PAPER_CSV_DIR. Useful when iterating on "
-             "matplotlib styling.",
+        help="Skip the chicken peck and rebuild the grid figure from the "
+             "cached per-dataset CSVs under --csv-dir. Useful when iterating "
+             "on matplotlib styling.",
     )
     args = ap.parse_args()
     if args.from_csv:
-        regenerate_from_csv()
+        regenerate_from_csv(args.csv_dir, args.fig)
         return
 
-    os.makedirs(OUT_DIR, exist_ok=True)
-    os.makedirs(PAPER_CSV_DIR, exist_ok=True)
-    os.makedirs(os.path.dirname(PAPER_FIG_PATH), exist_ok=True)
+    os.makedirs(args.csv_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(args.fig) or ".", exist_ok=True)
     grid_points = []
     for name, fname in DATASETS.items():
-        path = os.path.join(DATA_DIR, fname)
+        path = os.path.join(args.data_dir, fname)
         if not os.path.exists(path):
             print(f"[skip] {name}: {path} not found")
             continue
@@ -298,16 +313,16 @@ def main():
               f"{sum(len(s) for s in traces)} snapshots in {time.time() - t0:.1f}s")
 
         points = aggregate(traces, initials)
-        png = os.path.join(OUT_DIR, f"{name.lower()}_chicken_trace.png")
+        png = os.path.join(args.csv_dir, f"{name.lower()}_chicken_trace.png")
         plot(name, points, png)
-        csv = os.path.join(PAPER_CSV_DIR, f"{name.lower()}.csv")
+        csv = os.path.join(args.csv_dir, f"{name.lower()}.csv")
         write_csv(points, csv)
         grid_points.append((name, points))
         print(f"  wrote {png} and {csv}")
 
     if grid_points:
-        plot_grid(grid_points, PAPER_FIG_PATH)
-        print(f"wrote combined grid figure to {PAPER_FIG_PATH}")
+        plot_grid(grid_points, args.fig)
+        print(f"wrote combined grid figure to {args.fig}")
 
 
 if __name__ == "__main__":

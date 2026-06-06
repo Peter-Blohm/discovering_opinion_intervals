@@ -212,8 +212,6 @@ def main():
     best, counts = collect_min(args.csv)
     baseline, baseline_counts = collect_baseline(args.baseline_csv)
 
-    print(baseline_counts)
-
     # Coverage / sanity reports to stderr.
     expected = {(d, round(a, 2), algo)
                 for d in DATASETS_ORDER for a in ALPHAS for algo in ALGOS}

@@ -133,7 +133,7 @@ def main():
                     help="CSV summary file (default: <out-dir>/summary.csv)")
     ap.add_argument("--workers", type=int,
                     default=max(1, (os.cpu_count() or 1) - 2),
-                    help="Concurrent heuristic processes (default: CPUs - 1). "
+                    help="Concurrent heuristic processes (default: CPUs - 2). "
                          "Each (algo, seed) combo within a (dataset, alpha) "
                          "bucket runs as one worker.")
     args = ap.parse_args()
@@ -146,16 +146,14 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     os.makedirs(os.path.dirname(summary) or ".", exist_ok=True)
 
-    new_file = True #not os.path.isfile(summary)
     with open(summary, "w", newline="") as f:
         w = csv.writer(f)
-        if new_file:
-            w.writerow([
-                "dataset", "alpha", "algo", "seed",
-                "chicken_violations", "kernel_count",
-                "heuristic_violations", "total_violations",
-                "chicken_ms", "heuristic_ms",
-            ])
+        w.writerow([
+            "dataset", "alpha", "algo", "seed",
+            "chicken_violations", "kernel_count",
+            "heuristic_violations", "total_violations",
+            "chicken_ms", "heuristic_ms",
+        ])
 
         csv_lock = threading.Lock()
         print(f"[pool] {args.workers} workers", flush=True)

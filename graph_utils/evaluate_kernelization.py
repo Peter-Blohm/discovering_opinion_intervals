@@ -250,7 +250,6 @@ def read_csv_rows(path: str) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("datasets", nargs="*", help="dataset keys to evaluate")
-    parser.add_argument("--all", action="store_true", help="include the large datasets")
     parser.add_argument("--csv", metavar="FILE", help="write the results to a CSV file")
     parser.add_argument(
         "--tex", metavar="FILE", help="write a booktabs LaTeX table"
