@@ -61,6 +61,22 @@ def _stats(graph: SignedGraph) -> dict:
     }
 
 
+def _distinct_vertices(kernels: list[SignedGraph]) -> int:
+    """Number of distinct vertices across all kernels.
+
+    The vertex-separator rule (iii) places the separator (articulation) vertex
+    into every part it creates, so naively summing ``number_of_nodes()`` would
+    count those shared vertices multiple times. We therefore union the node
+    sets. (Edges need no such treatment: the splitting rules partition the
+    edges, so no edge appears in more than one kernel.)
+    """
+    seen: set = set()
+    for kernel in kernels:
+        seen.update(kernel.G_plus.nodes())
+        seen.update(kernel.G_minus.nodes())
+    return len(seen)
+
+
 def evaluate(key: str) -> dict:
     """Load one dataset, kernelize it, and return a row of summary statistics."""
     path = os.path.join(DATA_DIR, f"{key}.txt")
@@ -68,10 +84,10 @@ def evaluate(key: str) -> dict:
     original = _stats(graph)
 
     start = time.time()
-    kernels = kernelise_graph(graph)
+    kernels = kernelise_graph(graph, rule_i=True, rule_ii=True, rule_iii=True, rule_iv=True)
     runtime = time.time() - start
 
-    kernel_V = sum(k.number_of_nodes() for k in kernels)
+    kernel_V = _distinct_vertices(kernels)
     kernel_PE = sum(k.G_plus.number_of_edges() for k in kernels)
     kernel_NE = sum(k.G_minus.number_of_edges() for k in kernels)
     largest = max(kernels, key=lambda k: k.number_of_nodes()) if kernels else None
@@ -109,19 +125,18 @@ CUMULATIVE_RULES = [
 
 
 def evaluate_per_rule(key: str) -> dict:
-    """Report the remaining total kernel size as each rule is added in turn.
+    """Report the remaining number of distinct vertices as each rule is added.
 
-    Note: the splitting rules (iii, iv) duplicate the separator vertices/edge
-    endpoints across the parts they create, so the summed vertex count can grow
-    slightly when those rules are enabled even though no edge is ever counted
-    twice.
+    Vertices are counted with :func:`_distinct_vertices`, so the separator
+    vertices that rule (iii) shares between parts are not double-counted and the
+    figures decrease monotonically as more rules are enabled.
     """
     path = os.path.join(DATA_DIR, f"{key}.txt")
     graph = read_signed_graph(path)
     row = {"dataset": DATASETS.get(key, key), "orig_V": graph.number_of_nodes()}
     for label, flags in CUMULATIVE_RULES:
         kernels = kernelise_graph(graph, **flags)
-        row[label] = sum(k.number_of_nodes() for k in kernels)
+        row[label] = _distinct_vertices(kernels)
     return row
 
 
